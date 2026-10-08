@@ -7,6 +7,9 @@
   (`OptionsFlowWithReload`), re-authentication and reconfigure reload as before.
 - Removes the Home Assistant 2026.10 warning *"has an update listener and should use it for
   scheduling a reload"* – that combination stops working in Home Assistant 2026.12.
+- README: through a router integration (e.g. UniFi device trackers) Home Assistant passes a new IP
+  address on only when the tracker is added, i.e. at the next start – DHCP traffic in the same
+  network is picked up right away.
 
 ## 0.3.9 – 2026-10-08
 
