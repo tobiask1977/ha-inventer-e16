@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.8 – 2026-10-08
+
+- Wrong PSK is recognised (the controller ends the TLS handshake with *bad record mac*) and starts
+  Home Assistant's **re-authentication**: enter the new key, entities and history stay. Timeouts
+  stay "unavailable" and never trigger it.
+- **Reconfigure**: change host or PSK later without removing the integration (empty PSK keeps the
+  stored key).
+
 ## 0.3.7 – 2026-10-08
 
 - *Pause 1 h* button like the app's quick pause (ends by itself)

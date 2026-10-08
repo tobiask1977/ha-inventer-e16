@@ -15,6 +15,10 @@ import threading
 import time
 
 PORT = 47820
+# A wrong PSK makes the controller answer the handshake with this alert (measured 08.10.2026);
+# timeouts and resets are network problems, not a wrong key
+AUTH_FAILURE_REASONS = {"SSLV3_ALERT_BAD_RECORD_MAC", "TLSV1_ALERT_DECRYPT_ERROR",
+                        "DECRYPTION_FAILED_OR_BAD_RECORD_MAC", "TLSV1_ALERT_UNKNOWN_PSK_IDENTITY"}
 PSK_IDENTITY = "zirconia"
 CIPHER = "PSK-AES128-CBC-SHA"
 
@@ -71,6 +75,10 @@ MAX_DEVICES = 32
 # Hardware types as used by the vendor firmware catalog; device rows use 1-3,
 # the ESP32 Wi-Fi module comes from packet 54
 HW_MZCU, HW_FCU, HW_SENSORS, HW_ESP32 = 1, 2, 3, 6
+
+
+class E16AuthError(Exception):
+    """The controller rejected the PSK."""
 
 
 def crc8(data: bytes) -> int:
@@ -217,7 +225,13 @@ class E16Client:
         context.set_ciphers(CIPHER)
         context.set_psk_client_callback(lambda hint: (PSK_IDENTITY, self.key))
         with self._lock, socket.create_connection((self.host, self.port), timeout=10) as transport:
-            with context.wrap_socket(transport, server_hostname=None) as connection:
+            try:
+                connection = context.wrap_socket(transport, server_hostname=None)
+            except ssl.SSLError as error:
+                if getattr(error, "reason", None) in AUTH_FAILURE_REASONS:
+                    raise E16AuthError("The controller rejected the PSK") from error
+                raise
+            with connection:
                 yield connection
 
     @staticmethod

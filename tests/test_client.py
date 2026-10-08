@@ -138,3 +138,37 @@ def test_psk_validation():
         client.E16Client("192.0.2.1", "0000000000000000")
     with pytest.raises(ValueError):
         client.E16Client("192.0.2.1", "abcd")
+
+
+class _Transport:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _failing_handshake(monkeypatch, error):
+    monkeypatch.setattr(client.socket, "create_connection", lambda *a, **k: _Transport())
+
+    def wrap_socket(self, *args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(client.ssl.SSLContext, "wrap_socket", wrap_socket)
+
+
+def test_wrong_psk_is_reported_as_auth_error(monkeypatch):
+    # Measured 08.10.2026: a wrong PSK ends the handshake with "sslv3 alert bad record mac"
+    error = client.ssl.SSLError(1, "[SSL: SSLV3_ALERT_BAD_RECORD_MAC] sslv3 alert bad record mac")
+    error.reason = "SSLV3_ALERT_BAD_RECORD_MAC"
+    _failing_handshake(monkeypatch, error)
+    with pytest.raises(client.E16AuthError):
+        client.E16Client("192.0.2.1", "0102030405060708").get_zone()
+
+
+def test_other_tls_errors_are_not_auth_errors(monkeypatch):
+    error = client.ssl.SSLError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number")
+    error.reason = "WRONG_VERSION_NUMBER"
+    _failing_handshake(monkeypatch, error)
+    with pytest.raises(client.ssl.SSLError):
+        client.E16Client("192.0.2.1", "0102030405060708").get_zone()

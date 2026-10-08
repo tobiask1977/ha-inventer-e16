@@ -14,6 +14,28 @@
           "device_id": "Gerätekennung aus dem Aufnahme-Werkzeug, z. B. ABCDE-FGHIJ.",
           "psk": "Pre-Shared Key als 16 Hex-Zeichen aus dem Aufnahme-Werkzeug."
         }
+      },
+      "reauth_confirm": {
+        "title": "Regler lehnt den PSK ab",
+        "description": "Der Regler unter {host} nimmt den gespeicherten Schlüssel nicht mehr an – meist nach einem Werksreset oder einem getauschten Regler. PSK mit tools/e16_onboard.py neu auslesen.",
+        "data": {
+          "psk": "PSK"
+        },
+        "data_description": {
+          "psk": "Pre-Shared Key als 16 Hex-Zeichen aus dem Aufnahme-Werkzeug."
+        }
+      },
+      "reconfigure": {
+        "title": "Host oder PSK ändern",
+        "description": "Entitäten, Verlauf und Dashboards bleiben erhalten.",
+        "data": {
+          "host": "Host",
+          "psk": "PSK"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname des Reglers (im DHCP-Server reservieren).",
+          "psk": "Leer lassen, um den gespeicherten Schlüssel zu behalten."
+        }
       }
     },
     "error": {
@@ -21,7 +43,9 @@
       "invalid_key": "PSK ungültig oder unerwartete Antwort."
     },
     "abort": {
-      "already_configured": "Dieser Regler ist bereits eingerichtet."
+      "already_configured": "Dieser Regler ist bereits eingerichtet.",
+      "reauth_successful": "Neuer PSK gespeichert.",
+      "reconfigure_successful": "Einstellungen übernommen."
     }
   },
   "services": {

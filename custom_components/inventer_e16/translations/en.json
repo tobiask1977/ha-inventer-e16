@@ -14,6 +14,28 @@
           "device_id": "Device identity printed by the onboarding tool, e.g. ABCDE-FGHIJ.",
           "psk": "Pre-shared key as 16 hex characters, printed by the onboarding tool."
         }
+      },
+      "reauth_confirm": {
+        "title": "Controller rejected the PSK",
+        "description": "The controller at {host} no longer accepts the stored key - usually after a factory reset or a replaced controller. Read the PSK again with tools/e16_onboard.py.",
+        "data": {
+          "psk": "PSK"
+        },
+        "data_description": {
+          "psk": "Pre-shared key as 16 hex characters, printed by the onboarding tool."
+        }
+      },
+      "reconfigure": {
+        "title": "Change host or PSK",
+        "description": "Entities, history and dashboards stay as they are.",
+        "data": {
+          "host": "Host",
+          "psk": "PSK"
+        },
+        "data_description": {
+          "host": "IP address or host name of the controller (reserve it in your DHCP server).",
+          "psk": "Leave empty to keep the stored key."
+        }
       }
     },
     "error": {
@@ -21,7 +43,9 @@
       "invalid_key": "PSK invalid or unexpected reply."
     },
     "abort": {
-      "already_configured": "This controller is already configured."
+      "already_configured": "This controller is already configured.",
+      "reauth_successful": "New PSK saved.",
+      "reconfigure_successful": "Settings updated."
     }
   },
   "services": {

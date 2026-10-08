@@ -82,6 +82,9 @@ ventilation.
 *Settings → Devices & services → Add integration → inVENTer Easy Connect e16*, then enter host,
 device ID and PSK. Reserve the controller's IP address in your DHCP server.
 
+New IP address or key later (e.g. after a factory reset)? Use **Reconfigure** on the integration; if the
+controller rejects the stored key, Home Assistant asks for the new one by itself.
+
 ## Privacy
 
 Everything runs locally on TCP 47820. The only exception is the optional firmware check: once a

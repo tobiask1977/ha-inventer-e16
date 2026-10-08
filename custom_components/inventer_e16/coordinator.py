@@ -8,12 +8,12 @@ import logging
 import aiohttp
 
 from homeassistant.const import CONF_HOST
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .client import E16Client
+from .client import E16AuthError, E16Client
 from .const import CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK
 
 LOGGER = logging.getLogger(__package__)
@@ -40,6 +40,8 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         try:
             return await self.hass.async_add_executor_job(self.client.get_zone)
+        except E16AuthError as error:
+            raise ConfigEntryAuthFailed("The controller rejected the PSK") from error
         except (OSError, ValueError) as error:
             raise UpdateFailed(f"Reading the e16 zone failed: {error}") from error
 
@@ -47,7 +49,7 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
         LOGGER.debug("e16 command %s%s", method.__name__, args)
         try:
             zone = await self.hass.async_add_executor_job(method, *args)
-        except (OSError, ValueError) as error:
+        except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 command failed: {error}") from error
         self.async_set_updated_data(zone)
 
@@ -71,6 +73,8 @@ class E16InfoCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         try:
             info = await self.hass.async_add_executor_job(self.client.get_info)
+        except E16AuthError as error:
+            raise ConfigEntryAuthFailed("The controller rejected the PSK") from error
         except (OSError, ValueError) as error:
             raise UpdateFailed(f"Reading e16 maintenance data failed: {error}") from error
         if not self.config_entry.options.get(CONF_FIRMWARE_CATALOG, True):
@@ -102,7 +106,7 @@ class E16InfoCoordinator(DataUpdateCoordinator):
     async def async_set_global_field(self, field_id, raw):
         try:
             await self.hass.async_add_executor_job(self.client.set_global_field, field_id, raw)
-        except (OSError, ValueError) as error:
+        except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 setting failed: {error}") from error
         await self.async_request_refresh()
 
