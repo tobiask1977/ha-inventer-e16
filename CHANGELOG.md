@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.5 – 2026-10-08
+
+- Service `inventer_e16.set_mode` (fan entity): time-limited command with mode (heat recovery,
+  ventilation, pause with flap closed or open), speed and duration (15 min–8 h). Unlike
+  `fan.turn_off` a pause ends by itself, so an automation that stops renewing it hands control
+  back to the controller's profile.
+
 ## 0.3.4 – 2026-10-08
 
 - Dew point and absolute humidity indoor/outdoor, dew point difference

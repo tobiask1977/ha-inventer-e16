@@ -24,6 +24,36 @@
       "already_configured": "Dieser Regler ist bereits eingerichtet."
     }
   },
+  "services": {
+    "set_mode": {
+      "name": "Modus setzen",
+      "description": "Befristeter Befehl wie in der App: Modus, Stufe und Dauer. Danach kehrt der Regler zu seinem Profil zurück.",
+      "fields": {
+        "mode": {
+          "name": "Modus",
+          "description": "Wärmerückgewinnung, Durchlüftung oder Pause."
+        },
+        "speed": {
+          "name": "Stufe",
+          "description": "1 bis 4; bei Pause ohne Bedeutung."
+        },
+        "minutes": {
+          "name": "Dauer",
+          "description": "15 min bis 8 h. Ohne Angabe: die eingestellte Befehlsdauer."
+        }
+      }
+    }
+  },
+  "selector": {
+    "set_mode_mode": {
+      "options": {
+        "heat_recovery": "Wärmerückgewinnung",
+        "ventilation": "Durchlüftung",
+        "pause": "Pause, Klappe zu",
+        "pause_open": "Pause, Klappe offen"
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {

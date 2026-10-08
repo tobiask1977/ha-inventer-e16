@@ -29,6 +29,18 @@ controller – over your Wi-Fi, without the manufacturer's cloud.
 | Radio devices | Each fan and sensor as its own device: radio signal, runtime, temperature, humidity, battery; *battery low*, *radio device missing* and *alarm* flags |
 | Diagnostics | Downloadable diagnostics with PSK, host and device ID redacted |
 
+For automations there is the service **`inventer_e16.set_mode`** (mode, speed, duration), e.g.
+a pause that ends by itself:
+
+```yaml
+action: inventer_e16.set_mode
+target:
+  entity_id: fan.my_inventer
+data:
+  mode: pause          # heat_recovery | ventilation | pause | pause_open
+  minutes: 30
+```
+
 Speed and mode are **time-limited commands** exactly like in the app: when the command duration
 ends, the controller returns to its profile. Permanent changes are made through the profile.
 

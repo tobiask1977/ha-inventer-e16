@@ -3,7 +3,10 @@
 """Speed 1-4 and mode as time-limited command, off as unlimited pause - like the app."""
 import math
 
+import voluptuous as vol
+
 from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.helpers import entity_platform
 
 from . import client
 from .entity import E16Entity
@@ -15,10 +18,24 @@ READ_MODE_TO_PRESET = {1: VENTILATION, 2: HEAT_RECOVERY}
 # Playback in the zone status: 1 pause, 3 shut off, 4 shut down
 STOPPED = {1, 3, 4}
 SPEEDS = 4
+# Service set_mode: time-limited command with explicit mode, speed and duration - for automations.
+# The pause modes are what the app's mode dialog sends (always with speed 0); unlike turn_off they end.
+SET_MODE_MODES = {HEAT_RECOVERY: client.FAN_HEAT_RECOVERY, VENTILATION: client.FAN_VENTILATION,
+                  "pause": client.FAN_OFF, "pause_open": client.FAN_STOP}
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([E16Fan(entry.runtime_data.zone, entry, "fan")])
+    entity_platform.async_get_current_platform().async_register_entity_service(
+        "set_mode",
+        {
+            vol.Required("mode"): vol.In(list(SET_MODE_MODES)),
+            vol.Optional("speed", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=SPEEDS)),
+            # Same range as the app: 15 min to 8 h
+            vol.Optional("minutes"): vol.All(vol.Coerce(int), vol.Range(min=15, max=480)),
+        },
+        "async_set_mode",
+    )
 
 
 class E16Fan(E16Entity, FanEntity):
@@ -70,3 +87,12 @@ class E16Fan(E16Entity, FanEntity):
     async def async_turn_off(self, **kwargs):
         # App power button "off": global pause without end
         await self.coordinator.async_override(client.CMD_GLOBAL_PAUSE, duration=client.FOREVER)
+
+    async def async_set_mode(self, mode, speed=1, minutes=None):
+        fan_mode = SET_MODE_MODES[mode]
+        if fan_mode in (client.FAN_OFF, client.FAN_STOP):
+            speed = 0
+        await self.coordinator.async_override(
+            client.CMD_ZONE_SPEED_MODE, speed, fan_mode, self.coordinator.data["zone_id"],
+            (minutes or self.coordinator.override_minutes) * 60)
+

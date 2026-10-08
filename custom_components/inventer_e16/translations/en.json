@@ -24,6 +24,36 @@
       "already_configured": "This controller is already configured."
     }
   },
+  "services": {
+    "set_mode": {
+      "name": "Set mode",
+      "description": "Time-limited command like in the app: mode, speed and duration. Afterwards the controller returns to its profile.",
+      "fields": {
+        "mode": {
+          "name": "Mode",
+          "description": "Heat recovery, ventilation or pause."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "1 to 4; ignored for pause."
+        },
+        "minutes": {
+          "name": "Duration",
+          "description": "15 min to 8 h. Default: the command duration entity."
+        }
+      }
+    }
+  },
+  "selector": {
+    "set_mode_mode": {
+      "options": {
+        "heat_recovery": "Heat recovery",
+        "ventilation": "Ventilation",
+        "pause": "Pause, flap closed",
+        "pause_open": "Pause, flap open"
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
