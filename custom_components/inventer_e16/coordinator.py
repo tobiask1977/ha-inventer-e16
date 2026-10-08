@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Zone status every 30 s, maintenance/firmware every 10 min, vendor catalog once a day."""
 from dataclasses import dataclass
 from datetime import timedelta

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Firmware per component against the vendor catalog. Installing stays with the official app."""
 from homeassistant.components.update import UpdateEntity
 from homeassistant.const import EntityCategory

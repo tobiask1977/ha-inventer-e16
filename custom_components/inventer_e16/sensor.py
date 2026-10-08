@@ -1,10 +1,11 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Zone values, maintenance dates, Wi-Fi and radio values, runtimes."""
 from datetime import timedelta
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
-from homeassistant.const import (CONCENTRATION_PARTS_PER_MILLION, PERCENTAGE,
-                                 SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory,
-                                 UnitOfTemperature, UnitOfTime)
+from homeassistant.const import (PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory,
+                                 UnitOfRatio, UnitOfTemperature, UnitOfTime)
 from homeassistant.util import dt as dt_util
 
 from .client import FOREVER
@@ -29,7 +30,7 @@ ZONE_SENSORS = (
 )
 # Only created when the controller reports a value (needs a CO2/VOC sensor in the zone)
 OPTIONAL_ZONE_SENSORS = (
-    ("co2", SensorDeviceClass.CO2, CONCENTRATION_PARTS_PER_MILLION),
+    ("co2", SensorDeviceClass.CO2, UnitOfRatio.PARTS_PER_MILLION),
     ("voc", None, None),
 )
 # Indoor/outdoor sensors on the radio bus (device types 4 and 5)

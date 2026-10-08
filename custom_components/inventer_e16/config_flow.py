@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Config flow: host, device identity and PSK from the BLE onboarding tool."""
 import voluptuous as vol
 

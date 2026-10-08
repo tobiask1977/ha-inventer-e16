@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Protocol tests for client.py - no Home Assistant needed.
 
 The byte strings are real e16 replies with names and timestamps replaced; they contain no keys.

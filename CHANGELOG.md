@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 – 2026-10-08
+
+- CO₂ unit: `UnitOfRatio.PARTS_PER_MILLION` instead of the deprecated constant (removed in HA 2027.8)
+- Onboarding guide `docs/onboarding.md` (English/German)
+- License notice, trademark note and disclaimer in the README; SPDX identifiers in all sources
+
 ## 0.3.0 – 2026-10-08
 
 First version in its own repository.

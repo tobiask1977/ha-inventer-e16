@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Diagnostics download - PSK, host and device identity are redacted."""
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_HOST

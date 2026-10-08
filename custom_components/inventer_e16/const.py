@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Constants for the inVENTer Easy Connect e16 integration."""
 
 DOMAIN = "inventer_e16"

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Device mapping: the controller is the main device, fans and sensors hang below it."""
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 

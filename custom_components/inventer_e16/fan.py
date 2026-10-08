@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Speed 1-4 and mode as time-limited command, off as unlimited pause - like the app."""
 import math
 

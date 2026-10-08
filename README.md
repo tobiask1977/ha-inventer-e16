@@ -34,6 +34,8 @@ ends, the controller returns to its profile. Permanent changes are made through 
 
 The controller encrypts the local connection with a key that is individual per device. The app
 never shows it, but the controller hands it out over Bluetooth while in pairing mode.
+Step-by-step guide with troubleshooting: **[docs/onboarding.md](docs/onboarding.md)**
+(also in German).
 
 ```bash
 pip install -r tools/requirements.txt
@@ -88,4 +90,41 @@ dependency and can be used on its own.
 
 ## License
 
-[MIT](LICENSE)
+Copyright (c) 2026 Tobias Krautkremer. Released under the [MIT License](LICENSE): you may use,
+copy, modify and distribute this software, including commercially, as long as the copyright
+notice and the license text are kept. Source files carry the identifier
+`SPDX-License-Identifier: MIT`.
+
+"inVENTer" and "Easy Connect" are trademarks of their respective owner. They are used only to
+describe which devices this software works with; no endorsement is implied. This repository
+contains no code, images, logos or other material of the manufacturer or its app.
+
+## Disclaimer
+
+This is an independent, unofficial project, provided **"as is", without warranty of any kind**
+(see the [license](LICENSE)). It was developed by observing and analysing the device's
+communication for interoperability and has been tested on a single installation only.
+
+You use it **at your own risk**. In particular:
+
+- Commands change how your ventilation runs. Wrong settings over a longer time can affect indoor
+  air quality and humidity (risk of condensation and mould). Check the result.
+- Using unofficial software may affect warranty or support claims against the manufacturer.
+- The manufacturer can change firmware or cloud services at any time, which may break this
+  integration without notice.
+
+To the extent permitted by law, the authors are not liable for any damage to devices, buildings,
+health or data, or for any other loss arising from the use of this software.
+
+### Haftungsausschluss (Deutsch)
+
+Dies ist ein unabhängiges, inoffizielles Projekt, das ohne jede Gewährleistung bereitgestellt
+wird („wie besehen“, siehe [Lizenz](LICENSE)). Es entstand durch Beobachtung und Analyse der
+Gerätekommunikation zum Zweck der Interoperabilität und wurde nur an einer einzigen Anlage
+getestet. Die Nutzung erfolgt **auf eigene Gefahr**. Befehle verändern den Betrieb der Lüftung;
+falsche Einstellungen über längere Zeit können Raumluft und Feuchte beeinträchtigen
+(Kondensat- und Schimmelgefahr). Die Verwendung inoffizieller Software kann Gewährleistungs- oder
+Supportansprüche gegenüber dem Hersteller berühren. Soweit gesetzlich zulässig, haften die
+Autoren nicht für Schäden an Geräten, Gebäuden, Gesundheit oder Daten oder sonstige Schäden, die
+aus der Nutzung entstehen; die gesetzliche Haftung für Vorsatz und grobe Fahrlässigkeit sowie für
+Schäden aus der Verletzung von Leben, Körper oder Gesundheit bleibt unberührt.

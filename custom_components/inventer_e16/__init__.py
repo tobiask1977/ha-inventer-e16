@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """inVENTer Easy Connect e16 - local control over Wi-Fi (TLS-PSK)."""
 from homeassistant.const import Platform
 from homeassistant.helpers import device_registry as dr

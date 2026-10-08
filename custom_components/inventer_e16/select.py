@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Ventilation profile of the zone, filter and service interval."""
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory

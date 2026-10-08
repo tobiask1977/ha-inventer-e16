@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Duration for speed and mode commands (app: 15 min to 8 h in 15 min steps)."""
 from homeassistant.components.number import NumberMode, RestoreNumber
 from homeassistant.const import EntityCategory, UnitOfTime

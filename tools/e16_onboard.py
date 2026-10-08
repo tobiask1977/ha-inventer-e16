@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Tobias Krautkremer
 """Read device identity and PSK of an inVENTer Easy Connect e16 over Bluetooth LE.
 
 The Home Assistant integration talks to the controller over Wi-Fi with TLS-PSK. The key is
