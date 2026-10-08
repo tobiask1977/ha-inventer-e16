@@ -154,6 +154,9 @@ Note: Cancel also makes an automatic profile re-evaluate immediately, so the sta
 | 16385 | Service time left | f32 months |
 | 32768 | Reset filter timer | write u32 `0x46768482` |
 | 32769 | Reset service timer | write u32 `0x83698286` |
+| 32–35 | Fan power of speed level 1–4 | u8 %, read: 25 / 35 / 50 / 100 (installer setting) |
+| 36 | Reversal interval of the push-pull fans | u16 seconds, read: 70 |
+| 37 / 38 | Default profile mode / speed | u8, read: 1 / 1 |
 
 Verified: reading all, and resetting the filter timer (5.98 → 6.0 months, nothing else changed).
 The remaining time is updated rarely (unchanged over 20 minutes).

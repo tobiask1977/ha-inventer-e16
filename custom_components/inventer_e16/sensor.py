@@ -59,6 +59,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         entities += [E16DueSensor(data.info, entry, prefix, as_date=True),
                      E16DueSensor(data.info, entry, prefix, as_date=False)]
     entities.append(E16WifiSensor(data.info, entry, "wifi_rssi"))
+    if data.info.data.get("fan_speed_levels"):
+        entities += [E16FanLevel(data.info, entry, f"fan_speed_level_{n + 1}", n) for n in range(4)]
+    if data.info.data.get("fan_reversal_interval") is not None:
+        entities.append(E16ReversalInterval(data.info, entry, "fan_reversal_interval"))
     for device in data.info.data["devices"]:
         if device["type"] == 1:
             continue
@@ -239,3 +243,29 @@ class E16ClimateSensor(E16Entity, SensorEntity):
             return absolute_humidity(data[f"{self.side}_temperature"], data[f"{self.side}_humidity"])
         inside, outside = self._dew_point("inside"), self._dew_point("outside")
         return None if inside is None or outside is None else round(inside - outside, 1)
+
+
+class E16FanLevel(E16Entity, SensorEntity):
+    """Fan power of one speed level, as set by the installer (read only)."""
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, entry, key, index):
+        super().__init__(coordinator, entry, key)
+        self.index = index
+
+    @property
+    def native_value(self):
+        levels = self.coordinator.data.get("fan_speed_levels")
+        return levels[self.index] if levels else None
+
+
+class E16ReversalInterval(E16Entity, SensorEntity):
+    """How often the push-pull fans reverse in heat recovery mode (read only)."""
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.SECONDS
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("fan_reversal_interval")

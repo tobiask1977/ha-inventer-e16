@@ -173,6 +173,21 @@
       },
       "dew_point_difference": {
         "name": "Dew point difference"
+      },
+      "fan_speed_level_1": {
+        "name": "Fan power level 1"
+      },
+      "fan_speed_level_2": {
+        "name": "Fan power level 2"
+      },
+      "fan_speed_level_3": {
+        "name": "Fan power level 3"
+      },
+      "fan_speed_level_4": {
+        "name": "Fan power level 4"
+      },
+      "fan_reversal_interval": {
+        "name": "Reversal interval"
       }
     },
     "binary_sensor": {
@@ -216,6 +231,9 @@
       },
       "resume": {
         "name": "Resume profile"
+      },
+      "pause_1h": {
+        "name": "Pause 1 h"
       },
       "filter_reset": {
         "name": "Confirm filter change"

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7 – 2026-10-08
+
+- *Pause 1 h* button like the app's quick pause (ends by itself)
+- Fan power per speed level (e.g. 25/35/50/100 %) and the reversal interval of the push-pull
+  fans as diagnostic sensors – installer settings, deliberately read only
+
 ## 0.3.6 – 2026-10-08
 
 - Comfort settings of the zone as number entities: comfort temperature indoor and outdoor,

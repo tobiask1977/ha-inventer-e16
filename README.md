@@ -20,14 +20,14 @@ controller – over your Wi-Fi, without the manufacturer's cloud.
 
 | Area | Entities |
 |---|---|
-| **Control** | Fan with speed 1–4 and modes *heat recovery* / *ventilation*; off = unlimited pause, on = resume the profile; buttons *Boost 15 min* and *Resume profile*; *command duration* 15 min–8 h |
+| **Control** | Fan with speed 1–4 and modes *heat recovery* / *ventilation*; off = unlimited pause, on = resume the profile; buttons *Boost 15 min*, *Pause 1 h* and *Resume profile*; *command duration* 15 min–8 h |
 | **Profile** | Select the ventilation profile (default, bedroom, …, summer, cellar heat recovery, cellar with ventilation) and its comfort settings (comfort temperature indoor/outdoor, humidity threshold; CO₂/VOC threshold with such a sensor) |
 | Zone | Speed, playback, mode, timer, indoor/outdoor temperature and humidity, CO₂/VOC (if a sensor is present), system status, last command |
 | **Humidity** | Dew point and absolute humidity indoor/outdoor, dew point difference, and *Ventilation dries* – whether outdoor air would actually remove moisture (useful for cellars) |
 | **Maintenance** | Filter change and service: due date, days left, "due" flags from the controller, interval selection, *confirm* buttons |
 | **Firmware** | Update entities for Wi-Fi module, controller, fans and sensors, compared against the manufacturer's firmware catalog (can be disabled). Installing stays with the official app |
 | Radio devices | Each fan and sensor as its own device: radio signal, runtime, temperature, humidity, battery; *battery low*, *radio device missing* and *alarm* flags |
-| Diagnostics | Downloadable diagnostics with PSK, host and device ID redacted |
+| Diagnostics | Fan power per speed level and reversal interval (read only); downloadable diagnostics with PSK, host and device ID redacted |
 
 For automations there is the service **`inventer_e16.set_mode`** (mode, speed, duration), e.g.
 a pause that ends by itself:

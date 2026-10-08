@@ -50,6 +50,8 @@ READ_MODE_TO_FAN = {1: FAN_VENTILATION, 2: FAN_HEAT_RECOVERY}
 F_FILTER_INTERVAL, F_SERVICE_INTERVAL = 0, 1
 F_FILTER_LEFT, F_SERVICE_LEFT = 16384, 16385
 F_FILTER_RESET, F_SERVICE_RESET = 32768, 32769
+# Installer settings, read only here: fan power per speed level (u8 %) and reversal interval (u16 s)
+F_FAN_SPEED_1, F_FAN_AUTO_DIRECTION = 32, 36
 RESET_MAGIC = {F_FILTER_RESET: 0x46768482, F_SERVICE_RESET: 0x83698286}
 
 # ZoneRowField ids: zone_id * 65536 + field; fields 2-6 are float32 LE
@@ -267,6 +269,13 @@ class E16Client:
                 "filter_months_left": months(F_FILTER_LEFT),
                 "service_months_left": months(F_SERVICE_LEFT),
             }
+            try:
+                info["fan_speed_levels"] = [self._field(connection, T_GLOBAL_FIELD, F_FAN_SPEED_1 + n)[0]
+                                            for n in range(4)]
+                info["fan_reversal_interval"] = struct.unpack(
+                    "<H", self._field(connection, T_GLOBAL_FIELD, F_FAN_AUTO_DIRECTION)[:2])[0]
+            except ValueError:
+                info["fan_speed_levels"], info["fan_reversal_interval"] = None, None
             wifi = self._request(connection, T_WIFI_STATUS, b"", ESP32)
             info["wifi_rssi"] = struct.unpack_from("<b", wifi, 4)[0]
             images = self._request(connection, T_FIRMWARE_STATUS, b"", ESP32)

@@ -13,6 +13,8 @@ from .entity import E16Entity
 COMMANDS = (
     ("boost", (client.CMD_GLOBAL_BOOST, 4, client.FAN_VENTILATION, client.ZONE_GLOBAL, 900)),
     ("resume", (client.CMD_CANCEL, 0, client.FAN_OFF, client.ZONE_GLOBAL, 0)),
+    # Quick pause of the app's home screen: ends after one hour
+    ("pause_1h", (client.CMD_GLOBAL_PAUSE, 0, client.FAN_OFF, client.ZONE_GLOBAL, 3600)),
 )
 RESETS = (("filter_reset", client.F_FILTER_RESET), ("service_reset", client.F_SERVICE_RESET))
 

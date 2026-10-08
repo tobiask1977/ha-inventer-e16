@@ -173,6 +173,21 @@
       },
       "dew_point_difference": {
         "name": "Taupunktdifferenz"
+      },
+      "fan_speed_level_1": {
+        "name": "Leistung Stufe 1"
+      },
+      "fan_speed_level_2": {
+        "name": "Leistung Stufe 2"
+      },
+      "fan_speed_level_3": {
+        "name": "Leistung Stufe 3"
+      },
+      "fan_speed_level_4": {
+        "name": "Leistung Stufe 4"
+      },
+      "fan_reversal_interval": {
+        "name": "Wendeintervall"
       }
     },
     "binary_sensor": {
@@ -216,6 +231,9 @@
       },
       "resume": {
         "name": "Zeitprogramm fortsetzen"
+      },
+      "pause_1h": {
+        "name": "Pause 1 h"
       },
       "filter_reset": {
         "name": "Filterwechsel quittieren"
