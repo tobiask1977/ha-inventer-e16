@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.9 – 2026-10-08
+
+- **DHCP discovery**: the controller reports itself as `Easy Connect e16-<device id>`, so Home
+  Assistant offers it as "discovered" with host and device ID filled in – only the PSK is needed.
+  Works also when HA sees the controller only through a router integration (e.g. UniFi device
+  trackers), not just with DHCP traffic in the same network.
+- A configured controller that gets a new IP address is updated automatically.
+- Config flow tests against a real Home Assistant core (`tests/ha`, CI on Linux).
+
 ## 0.3.8 – 2026-10-08
 
 - Wrong PSK is recognised (the controller ends the TLS handshake with *bad record mac*) and starts

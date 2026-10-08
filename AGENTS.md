@@ -41,7 +41,7 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
 
 ## Before a release
 
-- `pytest tests` passes; CI (tests, hassfest, HACS) is green.
+- `pytest tests --ignore=tests/ha` passes; CI (tests, ha-tests, hassfest, HACS) is green.
 - Bump `version` in `manifest.json` and add a `CHANGELOG.md` entry.
 - If possible, import all platforms against the targeted Home Assistant version in a venv
   (`pip install homeassistant==<version>`) and evaluate the entities with sample data.

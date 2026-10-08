@@ -1,6 +1,17 @@
 {
   "config": {
+    "flow_title": "{name}",
     "step": {
+      "dhcp_confirm": {
+        "title": "inVENTer-Regler gefunden",
+        "description": "Easy Connect e16 unter {host} gefunden (Gerätekennung {device_id}). PSK eingeben – einmalig per Bluetooth mit tools/e16_onboard.py auslesen.",
+        "data": {
+          "psk": "PSK"
+        },
+        "data_description": {
+          "psk": "Pre-Shared Key als 16 Hex-Zeichen aus dem Aufnahme-Werkzeug."
+        }
+      },
       "user": {
         "title": "inVENTer Easy Connect e16",
         "description": "Der Regler muss im WLAN sein. Gerätekennung und PSK einmalig per Bluetooth mit tools/e16_onboard.py auslesen.",
@@ -44,6 +55,7 @@
     },
     "abort": {
       "already_configured": "Dieser Regler ist bereits eingerichtet.",
+      "not_supported": "Das Gerät sieht nicht wie ein Easy Connect e16 aus.",
       "reauth_successful": "Neuer PSK gespeichert.",
       "reconfigure_successful": "Einstellungen übernommen."
     }

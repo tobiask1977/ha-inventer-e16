@@ -82,6 +82,9 @@ ventilation.
 *Settings → Devices & services → Add integration → inVENTer Easy Connect e16*, then enter host,
 device ID and PSK. Reserve the controller's IP address in your DHCP server.
 
+Home Assistant usually finds the controller by itself ("Discovered: inVENTer Easy Connect e16") with host and
+device ID already filled in – then only the PSK is needed. A new IP address is picked up automatically.
+
 New IP address or key later (e.g. after a factory reset)? Use **Reconfigure** on the integration; if the
 controller rejects the stored key, Home Assistant asks for the new one by itself.
 
@@ -107,7 +110,9 @@ real device.
 
 ```bash
 pip install pytest
-pytest tests
+pytest tests --ignore=tests/ha          # protocol tests, any OS
+pip install pytest-homeassistant-custom-component
+pytest tests/ha                         # config flow tests, Linux/macOS
 ```
 
 The protocol client (`custom_components/inventer_e16/client.py`) has no Home Assistant

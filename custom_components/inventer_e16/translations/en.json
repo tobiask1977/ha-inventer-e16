@@ -1,6 +1,17 @@
 {
   "config": {
+    "flow_title": "{name}",
     "step": {
+      "dhcp_confirm": {
+        "title": "inVENTer controller found",
+        "description": "Found an Easy Connect e16 at {host} (device ID {device_id}). Enter its PSK - read it once over Bluetooth with tools/e16_onboard.py.",
+        "data": {
+          "psk": "PSK"
+        },
+        "data_description": {
+          "psk": "Pre-shared key as 16 hex characters, printed by the onboarding tool."
+        }
+      },
       "user": {
         "title": "inVENTer Easy Connect e16",
         "description": "The controller must be on your Wi-Fi. Read device ID and PSK once over Bluetooth with tools/e16_onboard.py.",
@@ -44,6 +55,7 @@
     },
     "abort": {
       "already_configured": "This controller is already configured.",
+      "not_supported": "This device does not look like an Easy Connect e16.",
       "reauth_successful": "New PSK saved.",
       "reconfigure_successful": "Settings updated."
     }
