@@ -128,6 +128,21 @@
       },
       "battery": {
         "name": "Batterie"
+      },
+      "dew_point_inside": {
+        "name": "Taupunkt innen"
+      },
+      "dew_point_outside": {
+        "name": "Taupunkt außen"
+      },
+      "absolute_humidity_inside": {
+        "name": "Absolute Feuchte innen"
+      },
+      "absolute_humidity_outside": {
+        "name": "Absolute Feuchte außen"
+      },
+      "dew_point_difference": {
+        "name": "Taupunktdifferenz"
       }
     },
     "binary_sensor": {
@@ -148,6 +163,9 @@
       },
       "alarm": {
         "name": "Alarm"
+      },
+      "ventilation_dries": {
+        "name": "Lüften trocknet"
       }
     },
     "fan": {

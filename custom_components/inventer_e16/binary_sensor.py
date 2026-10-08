@@ -6,6 +6,7 @@ from homeassistant.const import EntityCategory
 
 from . import client
 from .entity import E16Entity
+from .humidity import DRY_OFF_K, DRY_ON_K, MIN_INSIDE_C, dew_point, ventilation_dries
 
 DUE_BITS = {
     "filter": (client.SYS_FILTER_TIMEOUT, client.DEV_FILTER_DUE | client.DEV_FILTER_OVER),
@@ -22,6 +23,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         E16RadioLost(data.info, entry, "radio_lost"),
         E16BatteryLow(data.info, entry, "battery_low", data.zone),
         E16Alarm(data.info, entry, "alarm", data.zone),
+        E16VentilationDries(data.zone, entry, "ventilation_dries"),
     ])
 
 
@@ -111,3 +113,30 @@ class E16Alarm(E16Entity, BinarySensorEntity):
         zone_status = self.zone.data["status"] if self.zone.data else 0
         return bool(zone_status & client.SYS_ALARM
                     or any(d["status"] & client.DEV_ALARM for d in self.coordinator.data["devices"]))
+
+
+class E16VentilationDries(E16Entity, BinarySensorEntity):
+    """On while bringing in outdoor air would dry the room noticeably (dew point rule, hysteresis)."""
+    _attr_icon = "mdi:water-off"
+
+    def __init__(self, coordinator, entry, key):
+        super().__init__(coordinator, entry, key)
+        self._on = False
+
+    @property
+    def is_on(self):
+        result = ventilation_dries(self.coordinator.data, self._on)
+        if result is not None:
+            self._on = result
+        return result
+
+    @property
+    def extra_state_attributes(self):
+        data = self.coordinator.data
+        inside = dew_point(data["inside_temperature"], data["inside_humidity"])
+        outside = dew_point(data["outside_temperature"], data["outside_humidity"])
+        return {
+            "dew_point_difference_k": None if inside is None or outside is None else round(inside - outside, 1),
+            "switch_on_from_k": DRY_ON_K, "switch_off_below_k": DRY_OFF_K,
+            "min_inside_temperature_c": MIN_INSIDE_C,
+        }

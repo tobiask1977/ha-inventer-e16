@@ -5,11 +5,12 @@ from datetime import timedelta
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import (PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory,
-                                 UnitOfRatio, UnitOfTemperature, UnitOfTime)
+                                 UnitOfDensity, UnitOfRatio, UnitOfTemperature, UnitOfTime)
 from homeassistant.util import dt as dt_util
 
 from .client import FOREVER
 from .entity import E16Entity
+from .humidity import absolute_humidity, dew_point
 
 PLAYBACK = {0: "play", 1: "pause", 2: "boost", 3: "off", 4: "shutdown", 5: "override"}
 # Zone status mode table (not the one of the UserOverride command)
@@ -28,6 +29,14 @@ ZONE_SENSORS = (
     ("status", None, None),
     ("last_override", SensorDeviceClass.ENUM, None),
 )
+# Derived from temperature and humidity: is ventilating worth it? (key, side, kind)
+CLIMATE_SENSORS = (
+    ("dew_point_inside", "inside", "dew_point"),
+    ("dew_point_outside", "outside", "dew_point"),
+    ("absolute_humidity_inside", "inside", "absolute"),
+    ("absolute_humidity_outside", "outside", "absolute"),
+    ("dew_point_difference", None, "difference"),
+)
 # Only created when the controller reports a value (needs a CO2/VOC sensor in the zone)
 OPTIONAL_ZONE_SENSORS = (
     ("co2", SensorDeviceClass.CO2, UnitOfRatio.PARTS_PER_MILLION),
@@ -45,6 +54,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     entities = [E16ZoneSensor(data.zone, entry, *description) for description in ZONE_SENSORS]
     entities += [E16ZoneSensor(data.zone, entry, *description) for description in OPTIONAL_ZONE_SENSORS
                  if data.zone.data[description[0]] is not None]
+    entities += [E16ClimateSensor(data.zone, entry, *description) for description in CLIMATE_SENSORS]
     for prefix in ("filter", "service"):
         entities += [E16DueSensor(data.info, entry, prefix, as_date=True),
                      E16DueSensor(data.info, entry, prefix, as_date=False)]
@@ -68,8 +78,9 @@ class E16ZoneSensor(E16Entity, SensorEntity):
         super().__init__(coordinator, entry, key)
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit
+        # speed included: its hourly mean shows how hard the ventilation works over months
         if device_class in (SensorDeviceClass.TEMPERATURE, SensorDeviceClass.HUMIDITY,
-                            SensorDeviceClass.CO2) or key == "voc":
+                            SensorDeviceClass.CO2) or key in ("voc", "speed"):
             self._attr_state_class = SensorStateClass.MEASUREMENT
         if key in OPTIONS:
             self._attr_options = list(OPTIONS[key].values())
@@ -194,3 +205,37 @@ class E16Battery(E16Entity, SensorEntity):
     def native_value(self):
         row = self.device_row()
         return row["battery"] if row else None
+
+
+class E16ClimateSensor(E16Entity, SensorEntity):
+    """Dew point, absolute humidity and dew point difference, computed from the zone values."""
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator, entry, key, side, kind):
+        super().__init__(coordinator, entry, key)
+        self.side, self.kind = side, kind
+        if kind == "dew_point":
+            self._attr_device_class = SensorDeviceClass.TEMPERATURE
+            self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+        elif kind == "absolute":
+            self._attr_device_class = SensorDeviceClass.ABSOLUTE_HUMIDITY
+            self._attr_native_unit_of_measurement = UnitOfDensity.GRAMS_PER_CUBIC_METER
+        else:
+            # A temperature difference: no device class, or HA would convert it like a temperature
+            self._attr_native_unit_of_measurement = "K"
+            self._attr_icon = "mdi:thermometer-water"
+
+    def _dew_point(self, side):
+        data = self.coordinator.data
+        return dew_point(data[f"{side}_temperature"], data[f"{side}_humidity"])
+
+    @property
+    def native_value(self):
+        data = self.coordinator.data
+        if self.kind == "dew_point":
+            return self._dew_point(self.side)
+        if self.kind == "absolute":
+            return absolute_humidity(data[f"{self.side}_temperature"], data[f"{self.side}_humidity"])
+        inside, outside = self._dew_point("inside"), self._dew_point("outside")
+        return None if inside is None or outside is None else round(inside - outside, 1)

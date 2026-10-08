@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4 – 2026-10-08
+
+- Dew point and absolute humidity indoor/outdoor, dew point difference
+- *Ventilation dries* binary sensor: on from 5 K dew point difference, off below 4 K, never when
+  the room is below 10 °C – shows whether bringing in outdoor air removes moisture
+  (relative humidity alone does not tell: cold air at 95 % can hold less water than warm air at 60 %)
+- Fan speed is recorded in the long-term statistics
+
 ## 0.3.3 – 2026-10-08
 
 - Own brand icon in `custom_components/inventer_e16/brand/` (shown in Home Assistant 2026.3+);
