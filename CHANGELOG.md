@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.10 – 2026-10-08
+
+- No more reload when Home Assistant only records a DHCP discovery key on the entry: the
+  integration no longer uses a config entry update listener. Options still reload the entry
+  (`OptionsFlowWithReload`), re-authentication and reconfigure reload as before.
+- Removes the Home Assistant 2026.10 warning *"has an update listener and should use it for
+  scheduling a reload"* – that combination stops working in Home Assistant 2026.12.
+
 ## 0.3.9 – 2026-10-08
 
 - **DHCP discovery**: the controller reports itself as `Easy Connect e16-<device id>`, so Home

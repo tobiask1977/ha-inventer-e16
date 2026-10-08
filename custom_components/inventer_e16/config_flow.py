@@ -10,7 +10,7 @@ new IP address is taken over automatically.
 """
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlowWithReload
 from homeassistant.const import CONF_HOST
 from homeassistant.core import callback
 from homeassistant.helpers import selector
@@ -138,7 +138,7 @@ class E16ConfigFlow(ConfigFlow, domain=DOMAIN):
         return E16OptionsFlow()
 
 
-class E16OptionsFlow(OptionsFlow):
+class E16OptionsFlow(OptionsFlowWithReload):
     async def async_step_init(self, user_input=None):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
