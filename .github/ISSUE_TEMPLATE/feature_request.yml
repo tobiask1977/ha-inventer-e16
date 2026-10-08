@@ -1,0 +1,15 @@
+name: Feature request
+description: Suggest an idea or report a capability of your controller
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to do?
+    validations:
+      required: true
+  - type: textarea
+    id: app
+    attributes:
+      label: How does the official app do it?
+      description: Screens or steps in the app help to find the right protocol message.

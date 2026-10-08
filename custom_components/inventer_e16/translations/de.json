@@ -1,0 +1,248 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "inVENTer Easy Connect e16",
+        "description": "Der Regler muss im WLAN sein. Gerätekennung und PSK einmalig per Bluetooth mit tools/e16_onboard.py auslesen.",
+        "data": {
+          "host": "Host",
+          "device_id": "Gerätekennung",
+          "psk": "PSK"
+        },
+        "data_description": {
+          "host": "IP-Adresse oder Hostname des Reglers (im DHCP-Server reservieren).",
+          "device_id": "Gerätekennung aus dem Aufnahme-Werkzeug, z. B. ABCDE-FGHIJ.",
+          "psk": "Pre-Shared Key als 16 Hex-Zeichen aus dem Aufnahme-Werkzeug."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Regler auf TCP 47820 nicht erreichbar.",
+      "invalid_key": "PSK ungültig oder unerwartete Antwort."
+    },
+    "abort": {
+      "already_configured": "Dieser Regler ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "firmware_catalog": "Firmware-Katalog des Herstellers abfragen"
+        },
+        "data_description": {
+          "firmware_catalog": "Fragt einmal am Tag die Hersteller-Cloud, welche Firmware aktuell ist. Es werden keine Daten deiner Anlage gesendet."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "speed": {
+        "name": "Stufe"
+      },
+      "playback": {
+        "name": "Wiedergabe",
+        "state": {
+          "play": "Läuft",
+          "pause": "Pause",
+          "boost": "Boost",
+          "off": "Aus",
+          "shutdown": "Herunterfahren",
+          "override": "Befehl aktiv"
+        }
+      },
+      "mode": {
+        "name": "Betriebsart",
+        "state": {
+          "off": "Aus",
+          "ventilation": "Durchlüftung",
+          "heat_recovery": "Wärmerückgewinnung"
+        }
+      },
+      "timer": {
+        "name": "Timer"
+      },
+      "inside_temperature": {
+        "name": "Temperatur innen"
+      },
+      "inside_humidity": {
+        "name": "Feuchte innen"
+      },
+      "outside_temperature": {
+        "name": "Temperatur außen"
+      },
+      "outside_humidity": {
+        "name": "Feuchte außen"
+      },
+      "co2": {
+        "name": "CO₂"
+      },
+      "voc": {
+        "name": "VOC"
+      },
+      "status": {
+        "name": "Systemstatus"
+      },
+      "last_override": {
+        "name": "Letzter Befehl",
+        "state": {
+          "none": "Keiner",
+          "global_boost": "Boost (alle)",
+          "global_pause": "Pause (alle)",
+          "zone_boost": "Boost (Zone)",
+          "zone_pause": "Pause (Zone)",
+          "zone_speed_mode": "Stufe/Modus (Zone)",
+          "zone_profile": "Profil (Zone)",
+          "cancel": "Abbruch",
+          "fan_off": "Lüfter aus",
+          "fan_off_cancel": "Lüfter aus beendet"
+        }
+      },
+      "filter_due": {
+        "name": "Filterwechsel fällig am"
+      },
+      "filter_days_left": {
+        "name": "Filterwechsel in"
+      },
+      "service_due": {
+        "name": "Wartung fällig am"
+      },
+      "service_days_left": {
+        "name": "Wartung in"
+      },
+      "wifi_rssi": {
+        "name": "WLAN-Signal"
+      },
+      "signal": {
+        "name": "Funksignal"
+      },
+      "runtime": {
+        "name": "Laufzeit"
+      },
+      "temperature": {
+        "name": "Temperatur"
+      },
+      "humidity": {
+        "name": "Feuchte"
+      },
+      "battery": {
+        "name": "Batterie"
+      }
+    },
+    "binary_sensor": {
+      "problem": {
+        "name": "Statusmeldung"
+      },
+      "filter_due_flag": {
+        "name": "Filterwechsel fällig"
+      },
+      "service_due_flag": {
+        "name": "Wartung fällig"
+      },
+      "radio_lost": {
+        "name": "Funkgerät fehlt"
+      },
+      "battery_low": {
+        "name": "Batterie schwach"
+      },
+      "alarm": {
+        "name": "Alarm"
+      }
+    },
+    "fan": {
+      "fan": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "heat_recovery": "Wärmerückgewinnung",
+              "ventilation": "Durchlüftung"
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "boost": {
+        "name": "Boost 15 min"
+      },
+      "resume": {
+        "name": "Zeitprogramm fortsetzen"
+      },
+      "filter_reset": {
+        "name": "Filterwechsel quittieren"
+      },
+      "service_reset": {
+        "name": "Wartung quittieren"
+      }
+    },
+    "number": {
+      "override_minutes": {
+        "name": "Befehlsdauer"
+      }
+    },
+    "select": {
+      "profile": {
+        "name": "Lüftungsprofil",
+        "state": {
+          "default": "Standard",
+          "bedroom": "Schlafzimmer",
+          "childrens_room": "Kinderzimmer",
+          "bathroom": "Badezimmer",
+          "living_room": "Wohnzimmer",
+          "kitchen": "Küche",
+          "holiday": "Urlaub",
+          "summer": "Sommer",
+          "winter": "Winter",
+          "cellar_heat_recovery": "Wärmerückgewinnung im Keller",
+          "cellar_ventilation": "Taupunktlüftung",
+          "custom_1": "Benutzerdefiniertes Profil 1",
+          "custom_2": "Benutzerdefiniertes Profil 2",
+          "custom_3": "Benutzerdefiniertes Profil 3",
+          "custom_4": "Benutzerdefiniertes Profil 4",
+          "custom_5": "Benutzerdefiniertes Profil 5",
+          "custom_6": "Benutzerdefiniertes Profil 6",
+          "custom_7": "Benutzerdefiniertes Profil 7",
+          "custom_8": "Benutzerdefiniertes Profil 8",
+          "custom_9": "Benutzerdefiniertes Profil 9"
+        }
+      },
+      "filter_interval": {
+        "name": "Filterintervall",
+        "state": {
+          "off": "Aus",
+          "1": "1 Monat",
+          "2": "2 Monate",
+          "3": "3 Monate",
+          "4": "4 Monate",
+          "5": "5 Monate",
+          "6": "6 Monate"
+        }
+      },
+      "service_interval": {
+        "name": "Wartungsintervall",
+        "state": {
+          "off": "Aus",
+          "3": "3 Monate",
+          "6": "6 Monate",
+          "9": "9 Monate",
+          "12": "12 Monate"
+        }
+      }
+    },
+    "update": {
+      "firmware_esp32": {
+        "name": "Firmware WLAN-Modul"
+      },
+      "firmware_mzcu": {
+        "name": "Firmware Regler"
+      },
+      "firmware_fcu": {
+        "name": "Firmware Lüfter"
+      },
+      "firmware_sensors": {
+        "name": "Firmware Sensoren"
+      }
+    }
+  }
+}

@@ -1,0 +1,248 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "inVENTer Easy Connect e16",
+        "description": "The controller must be on your Wi-Fi. Read device ID and PSK once over Bluetooth with tools/e16_onboard.py.",
+        "data": {
+          "host": "Host",
+          "device_id": "Device ID",
+          "psk": "PSK"
+        },
+        "data_description": {
+          "host": "IP address or host name of the controller (reserve it in your DHCP server).",
+          "device_id": "Device identity printed by the onboarding tool, e.g. ABCDE-FGHIJ.",
+          "psk": "Pre-shared key as 16 hex characters, printed by the onboarding tool."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the controller on TCP 47820.",
+      "invalid_key": "PSK invalid or unexpected reply."
+    },
+    "abort": {
+      "already_configured": "This controller is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "firmware_catalog": "Check the vendor firmware catalog"
+        },
+        "data_description": {
+          "firmware_catalog": "Once a day, asks the manufacturer's cloud which firmware is current. Nothing about your installation is sent."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "speed": {
+        "name": "Fan speed"
+      },
+      "playback": {
+        "name": "Playback",
+        "state": {
+          "play": "Running",
+          "pause": "Paused",
+          "boost": "Boost",
+          "off": "Off",
+          "shutdown": "Shutting down",
+          "override": "Override"
+        }
+      },
+      "mode": {
+        "name": "Ventilation mode",
+        "state": {
+          "off": "Off",
+          "ventilation": "Ventilation",
+          "heat_recovery": "Heat recovery"
+        }
+      },
+      "timer": {
+        "name": "Timer"
+      },
+      "inside_temperature": {
+        "name": "Indoor temperature"
+      },
+      "inside_humidity": {
+        "name": "Indoor humidity"
+      },
+      "outside_temperature": {
+        "name": "Outdoor temperature"
+      },
+      "outside_humidity": {
+        "name": "Outdoor humidity"
+      },
+      "co2": {
+        "name": "CO₂"
+      },
+      "voc": {
+        "name": "VOC"
+      },
+      "status": {
+        "name": "System status"
+      },
+      "last_override": {
+        "name": "Last command",
+        "state": {
+          "none": "None",
+          "global_boost": "Boost (all)",
+          "global_pause": "Pause (all)",
+          "zone_boost": "Boost (zone)",
+          "zone_pause": "Pause (zone)",
+          "zone_speed_mode": "Speed/mode (zone)",
+          "zone_profile": "Profile (zone)",
+          "cancel": "Cancel",
+          "fan_off": "Fans off",
+          "fan_off_cancel": "Fans off ended"
+        }
+      },
+      "filter_due": {
+        "name": "Filter change due"
+      },
+      "filter_days_left": {
+        "name": "Filter change in"
+      },
+      "service_due": {
+        "name": "Service due"
+      },
+      "service_days_left": {
+        "name": "Service in"
+      },
+      "wifi_rssi": {
+        "name": "Wi-Fi signal"
+      },
+      "signal": {
+        "name": "Radio signal"
+      },
+      "runtime": {
+        "name": "Runtime"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "battery": {
+        "name": "Battery"
+      }
+    },
+    "binary_sensor": {
+      "problem": {
+        "name": "Status flag"
+      },
+      "filter_due_flag": {
+        "name": "Filter change"
+      },
+      "service_due_flag": {
+        "name": "Service"
+      },
+      "radio_lost": {
+        "name": "Radio device missing"
+      },
+      "battery_low": {
+        "name": "Battery"
+      },
+      "alarm": {
+        "name": "Alarm"
+      }
+    },
+    "fan": {
+      "fan": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "heat_recovery": "Heat recovery",
+              "ventilation": "Ventilation"
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "boost": {
+        "name": "Boost 15 min"
+      },
+      "resume": {
+        "name": "Resume profile"
+      },
+      "filter_reset": {
+        "name": "Confirm filter change"
+      },
+      "service_reset": {
+        "name": "Confirm service"
+      }
+    },
+    "number": {
+      "override_minutes": {
+        "name": "Command duration"
+      }
+    },
+    "select": {
+      "profile": {
+        "name": "Ventilation profile",
+        "state": {
+          "default": "Default",
+          "bedroom": "Bedroom",
+          "childrens_room": "Children's room",
+          "bathroom": "Bathroom",
+          "living_room": "Living room",
+          "kitchen": "Kitchen",
+          "holiday": "Holiday",
+          "summer": "Summer",
+          "winter": "Winter",
+          "cellar_heat_recovery": "Cellar heat recovery",
+          "cellar_ventilation": "Cellar with ventilation",
+          "custom_1": "Custom profile 1",
+          "custom_2": "Custom profile 2",
+          "custom_3": "Custom profile 3",
+          "custom_4": "Custom profile 4",
+          "custom_5": "Custom profile 5",
+          "custom_6": "Custom profile 6",
+          "custom_7": "Custom profile 7",
+          "custom_8": "Custom profile 8",
+          "custom_9": "Custom profile 9"
+        }
+      },
+      "filter_interval": {
+        "name": "Filter interval",
+        "state": {
+          "off": "Off",
+          "1": "1 month",
+          "2": "2 months",
+          "3": "3 months",
+          "4": "4 months",
+          "5": "5 months",
+          "6": "6 months"
+        }
+      },
+      "service_interval": {
+        "name": "Service interval",
+        "state": {
+          "off": "Off",
+          "3": "3 months",
+          "6": "6 months",
+          "9": "9 months",
+          "12": "12 months"
+        }
+      }
+    },
+    "update": {
+      "firmware_esp32": {
+        "name": "Firmware Wi-Fi module"
+      },
+      "firmware_mzcu": {
+        "name": "Firmware controller"
+      },
+      "firmware_fcu": {
+        "name": "Firmware fans"
+      },
+      "firmware_sensors": {
+        "name": "Firmware sensors"
+      }
+    }
+  }
+}

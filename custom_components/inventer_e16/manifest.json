@@ -1,0 +1,12 @@
+{
+  "domain": "inventer_e16",
+  "name": "inVENTer Easy Connect e16",
+  "codeowners": ["@tobiask1977"],
+  "config_flow": true,
+  "documentation": "https://github.com/tobiask1977/ha-inventer-e16",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/tobiask1977/ha-inventer-e16/issues",
+  "requirements": [],
+  "version": "0.3.0"
+}
