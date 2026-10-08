@@ -3,6 +3,15 @@
 Local control of inVENTer decentralised ventilation systems with the **Easy Connect e16**
 controller – over your Wi-Fi, without the manufacturer's cloud.
 
+> 🇩🇪 **Kurz auf Deutsch:** Diese Integration bindet eine **inVENTer-Lüftung** (dezentrale
+> Wohnraumlüftung mit Wärmerückgewinnung) über den Regler **inVENTer Easy Connect e16** mit
+> WLAN-Modul **lokal in Home Assistant** ein – ohne Cloud. Lüfterstufe, Wärmerückgewinnung oder
+> Durchlüftung, Boost, Pause und Lüftungsprofil (z. B. Sommer, Keller) steuern; Temperatur,
+> Luftfeuchte und Batterie der Funksensoren, Filterwechsel, Wartung und Firmware-Updates sehen.
+> Getestet mit zwei Lüftern iV14-Zero sowie Innen- und Außensensor am Easy Connect e16; andere
+> Lüfter am e16 sollten genauso funktionieren, sind aber nicht geprüft.
+> Anleitung zum Koppeln auf Deutsch: [docs/onboarding.md](docs/onboarding.md#deutsch).
+
 > **Unofficial.** This project is not affiliated with, endorsed or supported by inVENTer GmbH.
 > "inVENTer" and "Easy Connect" are trademarks of their respective owner and are used here only
 > to describe compatibility. Use at your own risk.
