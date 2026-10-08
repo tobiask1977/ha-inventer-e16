@@ -162,7 +162,7 @@ The remaining time is updated rarely (unchanged over 20 minutes).
 
 Field id = zone id × 65536 + field. Fields: 0 name (16 bytes), 1 profile (u8), 2 comfort room
 temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6 VOC threshold
-(each f32). Verified by reading: zone 1 field 0 returns the zone name, field 1 the profile.
+(each f32). Verified by reading: zone 1 field 0 returns the zone name, field 1 the profile. Verified by writing: field 1 (profile 253 → 0 → 253) and field 2 (comfort room temperature 20.0 → 20.5 → 20.0 °C); the zone status reflects the new value immediately, other fields stay unchanged.
 
 ### 142 DeviceViewRow (V5)
 
