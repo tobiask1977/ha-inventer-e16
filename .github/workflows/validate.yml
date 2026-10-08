@@ -7,6 +7,7 @@ on:
     - cron: "0 4 * * 1"
   workflow_dispatch:
 
+# Actions are pinned to commit SHAs (Dependabot keeps them current); no secrets are used.
 permissions:
   contents: read
 
@@ -14,8 +15,8 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7
         with:
           python-version: "3.13"
       - run: pip install pytest
@@ -24,15 +25,15 @@ jobs:
   hassfest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: home-assistant/actions/hassfest@master
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: home-assistant/actions/hassfest@06749dd8c0b54f350bc69c8752456cee498808a3  # master
 
   hacs:
     # The HACS check reads the repository through the public API - only meaningful once public
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
-      - uses: hacs/action@main
+      - uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa  # main
         with:
           category: integration
           ignore: brands

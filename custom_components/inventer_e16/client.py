@@ -63,6 +63,8 @@ DEV_SERVICE_DUE, DEV_FILTER_DUE, DEV_SERVICE_OVER, DEV_FILTER_OVER = 8192, 16384
 SYS_BATTERY_CRITICAL, SYS_ALARM, SYS_FILTER_TIMEOUT, SYS_SERVICE_TIMEOUT = 16, 32, 64, 128
 # Device types whose row carries a battery level at offset 41 (T/RH sensors, battery SSU)
 BATTERY_DEVICE_TYPES = {4, 5, 12}
+# A controller has a handful of radio devices; cap what a (faulty) reply can make us query
+MAX_DEVICES = 32
 # Hardware types as used by the vendor firmware catalog; device rows use 1-3,
 # the ESP32 Wi-Fi module comes from packet 54
 HW_MZCU, HW_FCU, HW_SENSORS, HW_ESP32 = 1, 2, 3, 6
@@ -183,6 +185,15 @@ def parse_device(data):
     }
 
 
+@contextmanager
+def _malformed_as_value_error():
+    """Truncated or garbled replies must surface as ValueError, never as struct/index errors."""
+    try:
+        yield
+    except (struct.error, IndexError) as error:
+        raise ValueError(f"Malformed Zirconia reply: {error}") from error
+
+
 class E16Client:
     def __init__(self, host, psk, port=PORT):
         self.host, self.port = host, port
@@ -223,6 +234,8 @@ class E16Client:
     @classmethod
     def _field(cls, connection, ptype, field_id):
         answer = cls._request(connection, ptype, field_payload(field_id))
+        if len(answer) < 9:
+            raise ValueError(f"Short reply for field {field_id}")
         magic, kind, length, answer_id = struct.unpack_from("<HBBI", answer)
         if magic != DOA_MAGIC or kind != DOA_RAW_WITH_ID or answer_id != field_id or length < 4:
             raise ValueError(f"Unexpected reply for field {field_id}")
@@ -230,18 +243,18 @@ class E16Client:
 
     def _update(self, ptype, payload):
         """Send like the app does: no reply expected, state is read again afterwards."""
-        with self._connect() as connection:
+        with self._connect() as connection, _malformed_as_value_error():
             connection.sendall(packet(ptype, payload, operation=UPDATE))
             time.sleep(0.5)
             return parse_zone(self._request(connection, T_ZONE_VIEW, b"\x00"))
 
     def get_zone(self, index=0):
-        with self._connect() as connection:
+        with self._connect() as connection, _malformed_as_value_error():
             return parse_zone(self._request(connection, T_ZONE_VIEW, bytes([index])))
 
     def get_info(self):
         """Maintenance, firmware, Wi-Fi and radio devices - rarely changes."""
-        with self._connect() as connection:
+        with self._connect() as connection, _malformed_as_value_error():
             def months(field_id):
                 return struct.unpack("<f", self._field(connection, T_GLOBAL_FIELD, field_id)[:4])[0]
 
@@ -255,7 +268,7 @@ class E16Client:
             info["wifi_rssi"] = struct.unpack_from("<b", wifi, 4)[0]
             images = self._request(connection, T_FIRMWARE_STATUS, b"", ESP32)
             info["esp32_firmware"] = parse_firmware_images(images).get(255)
-            count = self._request(connection, T_DEVICE_HEADER)[0]
+            count = min(self._request(connection, T_DEVICE_HEADER)[0], MAX_DEVICES)
             info["devices"] = [parse_device(self._request(connection, T_DEVICE_ROW, bytes([index])))
                                for index in range(count)]
         return info

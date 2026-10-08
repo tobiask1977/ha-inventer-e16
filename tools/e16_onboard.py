@@ -19,6 +19,7 @@ The PSK grants control over your ventilation: do not post it in issues or logs.
 import argparse
 import asyncio
 import json
+import os
 import struct
 import sys
 
@@ -101,7 +102,9 @@ def main():
         address = controllers[0][1]
     result = asyncio.run(read(address, args.confirm_pin))
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as file:
+        # Readable for the owner only (no effect on Windows ACLs)
+        descriptor = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
             json.dump(result, file, indent=2)
         print(f"Device ID {result['device_id']}; key written to {args.output}")
     else:

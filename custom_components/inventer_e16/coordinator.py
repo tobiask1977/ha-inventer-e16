@@ -90,7 +90,12 @@ class E16InfoCoordinator(DataUpdateCoordinator):
             ) as response:
                 response.raise_for_status()
                 result = (await response.json())["result"]["hardwareTypes"]
-            self.catalog = {item["hardwareType"]: item["version"] for item in result}
+            # Accept only plausible integers; anything else must not reach the update entities
+            self.catalog = {
+                item["hardwareType"]: item["version"] for item in result
+                if all(type(item.get(key)) is int for key in ("hardwareType", "version"))
+                and 0 <= item["version"] < 100_000_000
+            }
         except (aiohttp.ClientError, TimeoutError, KeyError, TypeError, ValueError) as error:
             LOGGER.warning("Vendor firmware catalog not reachable: %s", error)
 

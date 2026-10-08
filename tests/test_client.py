@@ -115,6 +115,18 @@ def test_closed_connection_raises():
         client.receive_exact(FakeConnection(b"ab"), 4)
 
 
+def test_malformed_reply_becomes_value_error():
+    with pytest.raises(ValueError):
+        with client._malformed_as_value_error():
+            struct.unpack_from("<b", b"\x00", 4)
+
+
+def test_short_field_reply_is_rejected():
+    reply = client.packet(client.T_GLOBAL_FIELD, b"\xba\x0a\x07", operation=client.RESPONSE)
+    with pytest.raises(ValueError):
+        client.E16Client._field(FakeConnection(reply), client.T_GLOBAL_FIELD, client.F_FILTER_LEFT)
+
+
 def test_psk_validation():
     with pytest.raises(ValueError):
         client.E16Client("192.0.2.1", "0000000000000000")

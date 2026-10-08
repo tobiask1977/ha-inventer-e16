@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.2 – 2026-10-08
+
+Security review before publishing:
+
+- Truncated or garbled controller replies end as a handled error instead of an unhandled
+  struct/index error; short field replies are rejected; at most 32 radio devices are queried
+- Only integer versions are accepted from the vendor firmware catalog
+- `tools/e16_onboard.py --output` creates the key file readable for the owner only
+- CI actions pinned to commit SHAs
+- Threat model in SECURITY.md; AGENTS.md/CLAUDE.md with contributor rules
+
 ## 0.3.1 – 2026-10-08
 
 - CO₂ unit: `UnitOfRatio.PARTS_PER_MILLION` instead of the deprecated constant (removed in HA 2027.8)
