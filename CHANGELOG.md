@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 – 2026-10-08
+
+- Own brand icon in `custom_components/inventer_e16/brand/` (shown in Home Assistant 2026.3+);
+  a neutral fan symbol, deliberately not the manufacturer's logo
+- HACS validation runs without exceptions
+
 ## 0.3.2 – 2026-10-08
 
 Security review before publishing:

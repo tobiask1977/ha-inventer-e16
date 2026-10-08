@@ -97,7 +97,8 @@ notice and the license text are kept. Source files carry the identifier
 
 "inVENTer" and "Easy Connect" are trademarks of their respective owner. They are used only to
 describe which devices this software works with; no endorsement is implied. This repository
-contains no code, images, logos or other material of the manufacturer or its app.
+contains no code, images, logos or other material of the manufacturer or its app. The icon in
+`custom_components/inventer_e16/brand/` is an original design for this project (MIT).
 
 ## Disclaimer
 
