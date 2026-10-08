@@ -52,8 +52,9 @@ F_FILTER_LEFT, F_SERVICE_LEFT = 16384, 16385
 F_FILTER_RESET, F_SERVICE_RESET = 32768, 32769
 RESET_MAGIC = {F_FILTER_RESET: 0x46768482, F_SERVICE_RESET: 0x83698286}
 
-# ZoneRowField ids: zone_id * 65536 + field
+# ZoneRowField ids: zone_id * 65536 + field; fields 2-6 are float32 LE
 ZF_NAME, ZF_PROFILE = 0, 1
+ZF_COMFORT_ROOM, ZF_COMFORT_OUTSIDE, ZF_RH_THRESHOLD, ZF_CO2_THRESHOLD, ZF_VOC_THRESHOLD = 2, 3, 4, 5, 6
 
 # DeviceViewRow.deviceStatus bits
 DEV_OFFLINE, DEV_ONLINE, DEV_LOST = 1, 2, 1024
@@ -151,8 +152,10 @@ def parse_zone(data):
         "status": struct.unpack_from("<I", data, 70)[0],
         "last_override": parse_override(data[74:82]) if len(data) >= 82 else None,
     }
-    # Missing sensors report -inf/NaN and become None
-    for name, offset in (("outside_temperature", 46), ("outside_humidity", 50),
+    # Missing sensors report -inf/NaN and become None; offsets 26-45: the zone's comfort settings
+    for name, offset in (("comfort_room_temperature", 26), ("comfort_outdoor_temperature", 30),
+                         ("humidity_threshold", 34), ("co2_threshold", 38), ("voc_threshold", 42),
+                         ("outside_temperature", 46), ("outside_humidity", 50),
                          ("inside_temperature", 54), ("inside_humidity", 58),
                          ("co2", 62), ("voc", 66)):
         values[name] = _finite(struct.unpack_from("<f", data, offset)[0])

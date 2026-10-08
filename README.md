@@ -21,7 +21,7 @@ controller – over your Wi-Fi, without the manufacturer's cloud.
 | Area | Entities |
 |---|---|
 | **Control** | Fan with speed 1–4 and modes *heat recovery* / *ventilation*; off = unlimited pause, on = resume the profile; buttons *Boost 15 min* and *Resume profile*; *command duration* 15 min–8 h |
-| **Profile** | Select the ventilation profile (default, bedroom, …, summer, cellar heat recovery, cellar with ventilation) |
+| **Profile** | Select the ventilation profile (default, bedroom, …, summer, cellar heat recovery, cellar with ventilation) and its comfort settings (comfort temperature indoor/outdoor, humidity threshold; CO₂/VOC threshold with such a sensor) |
 | Zone | Speed, playback, mode, timer, indoor/outdoor temperature and humidity, CO₂/VOC (if a sensor is present), system status, last command |
 | **Humidity** | Dew point and absolute humidity indoor/outdoor, dew point difference, and *Ventilation dries* – whether outdoor air would actually remove moisture (useful for cellars) |
 | **Maintenance** | Filter change and service: due date, days left, "due" flags from the controller, interval selection, *confirm* buttons |

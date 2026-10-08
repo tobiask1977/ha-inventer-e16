@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.6 – 2026-10-08
+
+- Comfort settings of the zone as number entities: comfort temperature indoor and outdoor,
+  humidity threshold; CO₂ and VOC threshold only when such a sensor is present. They feed the
+  controller's automatic profiles. The app offers no end-user form for them on the e16, so the
+  allowed ranges are a conservative choice of this integration.
+
 ## 0.3.5 – 2026-10-08
 
 - Service `inventer_e16.set_mode` (fan entity): time-limited command with mode (heat recovery,

@@ -227,6 +227,21 @@
     "number": {
       "override_minutes": {
         "name": "Befehlsdauer"
+      },
+      "comfort_room_temperature": {
+        "name": "Komfort-Temperatur innen"
+      },
+      "comfort_outdoor_temperature": {
+        "name": "Komfort-Temperatur außen"
+      },
+      "humidity_threshold": {
+        "name": "Feuchteschwelle"
+      },
+      "co2_threshold": {
+        "name": "CO₂-Schwelle"
+      },
+      "voc_threshold": {
+        "name": "VOC-Schwelle"
       }
     },
     "select": {

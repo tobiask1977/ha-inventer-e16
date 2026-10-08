@@ -227,6 +227,21 @@
     "number": {
       "override_minutes": {
         "name": "Command duration"
+      },
+      "comfort_room_temperature": {
+        "name": "Comfort temperature indoor"
+      },
+      "comfort_outdoor_temperature": {
+        "name": "Comfort temperature outdoor"
+      },
+      "humidity_threshold": {
+        "name": "Humidity threshold"
+      },
+      "co2_threshold": {
+        "name": "CO₂ threshold"
+      },
+      "voc_threshold": {
+        "name": "VOC threshold"
       }
     },
     "select": {

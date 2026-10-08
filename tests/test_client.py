@@ -41,6 +41,9 @@ def test_zone_reply():
     assert zone["inside_temperature"] == 21.59
     assert zone["outside_humidity"] == 97.01
     assert zone["co2"] is None and zone["voc"] is None
+    # Comfort settings of the zone (offsets 26-45)
+    assert (zone["comfort_room_temperature"], zone["comfort_outdoor_temperature"], zone["humidity_threshold"],
+            zone["co2_threshold"], zone["voc_threshold"]) == (20.0, 16.0, 70.0, 1500.0, 3.0)
     assert zone["last_override"] == {"command": 7, "speed": 0, "mode": 3, "zone": 255, "duration": 0}
 
 
@@ -82,6 +85,9 @@ def test_field_payloads():
     assert reset.hex() == "ba0a0708" "00800000" "82847646"
     # Zone field: zone id 1, field 1 (profile) -> id 65537
     assert client.field_payload(1 * 65536 + client.ZF_PROFILE, b"\xfd").hex() == "ba0a070501000100fd"
+    # Comfort room temperature 20.5 degC as float32 LE -> id 65538
+    assert client.field_payload(1 * 65536 + client.ZF_COMFORT_ROOM, struct.pack("<f", 20.5)).hex() == (
+        "ba0a0708" "02000100" "0000a441")
 
 
 def test_packet_timestamp_is_big_endian(monkeypatch):
