@@ -88,6 +88,50 @@
           "description": "Standard: das aktuelle Profil der Zone."
         }
       }
+    },
+    "set_time_program_entry": {
+      "name": "Zeitprogramm-Eintrag setzen",
+      "description": "Schreibt einen Eintrag im Zeitprogramm eines Profils und liest ihn zurück. Ändert, wie der Regler läuft, sobald dieses Profil aktiv ist.",
+      "fields": {
+        "profile": {
+          "name": "Profil",
+          "description": "Lüftungsprofil, dessen Zeitprogramm geändert wird."
+        },
+        "entry": {
+          "name": "Eintrag",
+          "description": "Platz 0–31. Welche Plätze belegt sind, zeigt die Antwort von „Zeitprogramm lesen“."
+        },
+        "time": {
+          "name": "Startzeit",
+          "description": "Ab dieser Uhrzeit gilt der Eintrag (Minuten; Sekunden werden ignoriert)."
+        },
+        "days": {
+          "name": "Wochentage",
+          "description": "Tage, an denen der Eintrag gilt."
+        },
+        "mode": {
+          "name": "Modus",
+          "description": "Wärmerückgewinnung, Durchlüftung oder Pause."
+        },
+        "speed": {
+          "name": "Stufe",
+          "description": "1 bis 4; bei Pause ohne Bedeutung."
+        }
+      }
+    },
+    "delete_time_program_entry": {
+      "name": "Zeitprogramm-Eintrag löschen",
+      "description": "Löscht einen Eintrag im Zeitprogramm eines Profils (der Platz wird leer) und liest ihn zurück.",
+      "fields": {
+        "profile": {
+          "name": "Profil",
+          "description": "Lüftungsprofil, dessen Zeitprogramm geändert wird."
+        },
+        "entry": {
+          "name": "Eintrag",
+          "description": "Platz 0–31. Welche Plätze belegt sind, zeigt die Antwort von „Zeitprogramm lesen“."
+        }
+      }
     }
   },
   "selector": {
@@ -116,6 +160,17 @@
         "custom_7": "Benutzerdefiniertes Profil 7",
         "custom_8": "Benutzerdefiniertes Profil 8",
         "custom_9": "Benutzerdefiniertes Profil 9"
+      }
+    },
+    "weekday": {
+      "options": {
+        "monday": "Montag",
+        "tuesday": "Dienstag",
+        "wednesday": "Mittwoch",
+        "thursday": "Donnerstag",
+        "friday": "Freitag",
+        "saturday": "Samstag",
+        "sunday": "Sonntag"
       }
     }
   },

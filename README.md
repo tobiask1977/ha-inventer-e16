@@ -58,6 +58,25 @@ response_variable: program
 
 Each entry has `time`, `days`, `mode` (as in `set_mode`) and `speed`.
 
+**`inventer_e16.set_time_program_entry`** and **`delete_time_program_entry`** change one entry
+(slot 0–31) of a profile's time program; every write is read back from the controller:
+
+```yaml
+action: inventer_e16.set_time_program_entry
+target:
+  entity_id: fan.my_inventer
+data:
+  profile: custom_1
+  entry: 0
+  time: "06:30"
+  days: [monday, tuesday, wednesday, thursday, friday]
+  mode: heat_recovery
+  speed: 2
+```
+
+The change applies whenever that profile is active. Read the program first and keep a copy –
+there is no undo.
+
 ## Requirements
 
 - Easy Connect e16 with Wi-Fi module, connected to your network (set up with the official app)
@@ -117,7 +136,7 @@ are current – sending only the brand name `inventer`. Switch it off in the int
 ## Limitations
 
 - Only the first zone of a controller is supported (multi-zone systems: please open an issue).
-- Time programs can be read, not yet edited; custom profiles cannot be edited.
+- Custom profiles cannot be created or renamed (their time programs can be edited).
 - Firmware cannot be installed from Home Assistant.
 - Tested with one installation (two fan units, indoor and outdoor sensor).
 

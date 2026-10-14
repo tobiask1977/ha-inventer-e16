@@ -54,3 +54,106 @@ get_time_program:
             - custom_7
             - custom_8
             - custom_9
+set_time_program_entry:
+  target:
+    entity:
+      integration: inventer_e16
+      domain: fan
+  fields:
+    profile:
+      required: true
+      selector:
+        select:
+          translation_key: time_program_profile
+          options:
+            - bedroom
+            - childrens_room
+            - bathroom
+            - living_room
+            - kitchen
+            - holiday
+            - custom_1
+            - custom_2
+            - custom_3
+            - custom_4
+            - custom_5
+            - custom_6
+            - custom_7
+            - custom_8
+            - custom_9
+    entry:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 31
+          mode: box
+    time:
+      required: true
+      selector:
+        time:
+    days:
+      required: true
+      selector:
+        select:
+          translation_key: weekday
+          multiple: true
+          options:
+            - monday
+            - tuesday
+            - wednesday
+            - thursday
+            - friday
+            - saturday
+            - sunday
+    mode:
+      required: true
+      selector:
+        select:
+          translation_key: set_mode_mode
+          options:
+            - heat_recovery
+            - ventilation
+            - pause
+            - pause_open
+    speed:
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 4
+          mode: slider
+delete_time_program_entry:
+  target:
+    entity:
+      integration: inventer_e16
+      domain: fan
+  fields:
+    profile:
+      required: true
+      selector:
+        select:
+          translation_key: time_program_profile
+          options:
+            - bedroom
+            - childrens_room
+            - bathroom
+            - living_room
+            - kitchen
+            - holiday
+            - custom_1
+            - custom_2
+            - custom_3
+            - custom_4
+            - custom_5
+            - custom_6
+            - custom_7
+            - custom_8
+            - custom_9
+    entry:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 31
+          mode: box

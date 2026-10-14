@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Services `set_time_program_entry` and `delete_time_program_entry`**: change one entry of a
+  profile's time program, read back from the controller after every write (#9).
+
 ## 0.3.12 – 2026-10-14
 
 - Client: read the time program of a ventilation profile and write or delete single entries,

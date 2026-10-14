@@ -88,6 +88,50 @@
           "description": "Default: the zone's current profile."
         }
       }
+    },
+    "set_time_program_entry": {
+      "name": "Set time program entry",
+      "description": "Writes one entry of a profile's time program and reads it back. Changes how the controller runs whenever that profile is active.",
+      "fields": {
+        "profile": {
+          "name": "Profile",
+          "description": "Ventilation profile whose time program is changed."
+        },
+        "entry": {
+          "name": "Entry",
+          "description": "Slot 0-31. The response of get_time_program shows which slots are used."
+        },
+        "time": {
+          "name": "Start time",
+          "description": "From this time on the entry applies (minutes; seconds are ignored)."
+        },
+        "days": {
+          "name": "Weekdays",
+          "description": "Days on which the entry applies."
+        },
+        "mode": {
+          "name": "Mode",
+          "description": "Heat recovery, ventilation or pause."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "1 to 4; ignored for pause."
+        }
+      }
+    },
+    "delete_time_program_entry": {
+      "name": "Delete time program entry",
+      "description": "Deletes one entry of a profile's time program (the entry becomes empty) and reads it back.",
+      "fields": {
+        "profile": {
+          "name": "Profile",
+          "description": "Ventilation profile whose time program is changed."
+        },
+        "entry": {
+          "name": "Entry",
+          "description": "Slot 0-31. The response of get_time_program shows which slots are used."
+        }
+      }
     }
   },
   "selector": {
@@ -116,6 +160,17 @@
         "custom_7": "Custom profile 7",
         "custom_8": "Custom profile 8",
         "custom_9": "Custom profile 9"
+      }
+    },
+    "weekday": {
+      "options": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
       }
     }
   },

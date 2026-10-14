@@ -8,7 +8,7 @@ import voluptuous as vol
 from homeassistant.components.fan import FanEntity, FanEntityFeature
 from homeassistant.core import SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import entity_platform
+from homeassistant.helpers import config_validation as cv, entity_platform
 
 from . import client
 from .entity import E16Entity
@@ -30,16 +30,26 @@ PROGRAM_MODES = {value: key for key, value in SET_MODE_MODES.items()}
 DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 
+def program_record(start, days, mode, speed):
+    """Service fields -> 8-byte record; pause modes always run with speed 0, like set_mode."""
+    fan_mode = SET_MODE_MODES[mode]
+    if fan_mode in (client.FAN_OFF, client.FAN_STOP):
+        speed = 0
+    bits = sum(1 << DAYS.index(day) for day in set(days))
+    return client.program_record(start.hour * 3600 + start.minute * 60, bits, fan_mode, speed)
+
+
+def program_entry(index, item):
+    return {"entry": index, "time": f"{item['seconds'] // 3600:02}:{item['seconds'] % 3600 // 60:02}",
+            "days": [day for bit, day in enumerate(DAYS) if item["days"] >> bit & 1],
+            "mode": PROGRAM_MODES.get(item["mode"], item["mode"]), "speed": item["speed"]}
+
+
 def program_response(profile, entries):
     """Service response: the used entries of a time program, in the controller's order."""
     return {
         "profile": {**PROFILES, **HIDDEN_PROFILES}[profile],
-        "entries": [
-            {"entry": index, "time": f"{item['seconds'] // 3600:02}:{item['seconds'] % 3600 // 60:02}",
-             "days": [day for bit, day in enumerate(DAYS) if item["days"] >> bit & 1],
-             "mode": PROGRAM_MODES.get(item["mode"], item["mode"]), "speed": item["speed"]}
-            for index, item in enumerate(entries) if item
-        ],
+        "entries": [program_entry(index, item) for index, item in enumerate(entries) if item],
     }
 
 
@@ -61,6 +71,24 @@ async def async_setup_entry(hass, entry, async_add_entities):
         "async_get_time_program",
         supports_response=SupportsResponse.ONLY,
     )
+    entry_fields = {
+        vol.Required("profile"): vol.In(list(PROGRAM_PROFILES)),
+        vol.Required("entry"): vol.All(vol.Coerce(int), vol.Range(min=0, max=client.PROGRAM_ENTRIES - 1)),
+    }
+    entity_platform.async_get_current_platform().async_register_entity_service(
+        "set_time_program_entry",
+        {
+            **entry_fields,
+            vol.Required("time"): cv.time,
+            vol.Required("days"): vol.All(cv.ensure_list, [vol.In(DAYS)], vol.Length(min=1)),
+            vol.Required("mode"): vol.In(list(SET_MODE_MODES)),
+            vol.Optional("speed", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=SPEEDS)),
+        },
+        "async_set_time_program_entry",
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    entity_platform.async_get_current_platform().async_register_entity_service(
+        "delete_time_program_entry", entry_fields, "async_delete_time_program_entry")
 
 
 class E16Fan(E16Entity, FanEntity):
@@ -127,6 +155,24 @@ class E16Fan(E16Entity, FanEntity):
         except (client.E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"Reading the time program failed: {error}") from error
         return program_response(value, entries)
+
+    async def _write_program_entry(self, profile, entry, record):
+        """Write one entry; the client reads it back and raises if it was not stored."""
+        try:
+            stored = await self.hass.async_add_executor_job(
+                self.coordinator.client.set_time_program_entry, PROGRAM_PROFILES[profile], entry, record)
+        except (client.E16AuthError, OSError, ValueError) as error:
+            raise HomeAssistantError(f"Writing the time program failed: {error}") from error
+        # The entry may change what the current profile does right now
+        await self.coordinator.async_request_refresh()
+        return stored
+
+    async def async_set_time_program_entry(self, profile, entry, time, days, mode, speed=1):
+        stored = await self._write_program_entry(profile, entry, program_record(time, days, mode, speed))
+        return program_entry(entry, stored)
+
+    async def async_delete_time_program_entry(self, profile, entry):
+        await self._write_program_entry(profile, entry, None)
 
     async def async_set_mode(self, mode, speed=1, minutes=None):
         fan_mode = SET_MODE_MODES[mode]
