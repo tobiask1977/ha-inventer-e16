@@ -62,6 +62,7 @@ Several payloads are wrapped:
 | Type | Name | Dest. | Request payload | Reply / purpose | Status |
 |---:|---|---:|---|---|---|
 | 13 | WifiStatus | 159 | – | IP `u32`, RSSI `i8` @4, client count @5, flags @6 (bit0 connected, bit1 IP, bit2 listening) | verified |
+| 48 | Time program | 0 | bare record with CRC-8 (below) | one entry of a profile's time program | verified (read, write, delete) |
 | 54 | FirmwareUpdateStatus | 159 | – | list of 10-byte image records (below) | verified |
 | 56 | UserOverride | 0 | wrapper(Raw) + 8-byte record | time-limited command (below) | verified |
 | 136 | GlobalDataField | 0 | wrapper(RawWithId, id) | system settings (below) | verified (read, filter reset) |
@@ -70,8 +71,8 @@ Several payloads are wrapped:
 | 144 | ZoneRowField | 0 | wrapper(RawWithId, zone_id × 65536 + field) | zone settings (below) | verified (read) |
 | 146 | ZoneViewRow | 0 | zone index `u8` (0 = first zone) | zone status (below) | verified |
 
-Other types exist (time programs 48, firmware transfer 52–55, reboot 10, Wi-Fi config 12, …) and
-are deliberately not used.
+Other types exist (firmware transfer 52–55, reboot 10, Wi-Fi config 12, …) and are deliberately
+not used.
 
 ### 146 ZoneViewRow (V5)
 
@@ -198,6 +199,42 @@ temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6
 
 Records of 10 bytes: index `u8`, valid `u8` (1 valid), version `u32`, CRC `u32`. Index 255 is the
 running image.
+
+### 48 Time program
+
+Each ventilation profile 1–15 (table above) has its own time program: table = profile value − 1,
+32 entries per table. The payload is **not** wrapped in a DataObjectArray; it is a bare record that
+ends with its own CRC-8 (same algorithm as the packet, over the bytes before it). A request without
+that byte gets no reply at all.
+
+| Offset | Type | Content |
+|---:|---|---|
+| 0 | u16 | Table (profile − 1) |
+| 2 | u16 | Entry 0–31 |
+| 4 | 8 bytes | Entry record (below) – only in replies and writes |
+| last | u8 | CRC-8 |
+
+Read: `DATA_REQUEST` with table and entry (5 bytes), the reply carries the full 13-byte record.
+Write: `UPDATE` with the 13-byte record; the controller sends **no reply**, so read the entry back.
+Delete: write an all-zero record.
+
+Entry record:
+
+| Offset | Type | Content |
+|---:|---|---|
+| 0 | u32 | Start time in seconds of the day |
+| 4 | u8 | Days: bit0 Monday … bit6 Sunday (0 = entry unused) |
+| 5 | u8 | Fan mode, same table as UserOverride (1 heat recovery, 2 ventilation, 3 pause flap closed, 4 pause flap open) |
+| 6 | u8 | Speed 0–4 |
+| 7 | u8 | Type: 1 fan |
+
+Verified on a real controller: all 15 tables read (the built-in profiles 1–6 hold default
+programs with 5–13 entries, custom profiles were empty); one entry of an unused custom profile
+written, read back and deleted, all other entries unchanged.
+
+> ⚠️ Table **and** entry 65535 address the whole store (checksum over all tables, or one table with
+> entry 65535). According to the app analysis, the same record sent as `UPDATE` resets **all** time
+> programs – deliberately not tested. The client never sends ids outside 0–14 / 0–31.
 
 ## Firmware catalog
 

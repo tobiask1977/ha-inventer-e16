@@ -28,6 +28,7 @@ UPDATE, DATA_REQUEST, RESPONSE = 1, 2, 64
 MASTER, ESP32 = 0, 159
 # Packet types
 T_WIFI_STATUS = 13
+T_TIME_PROGRAM = 48
 T_FIRMWARE_STATUS = 54
 T_USER_OVERRIDE = 56
 T_GLOBAL_FIELD = 136
@@ -61,6 +62,13 @@ RESET_MAGIC = {F_FILTER_RESET: 0x46768482, F_SERVICE_RESET: 0x83698286}
 # ZoneRowField ids: zone_id * 65536 + field; fields 2-6 are float32 LE
 ZF_NAME, ZF_PROFILE = 0, 1
 ZF_COMFORT_ROOM, ZF_COMFORT_OUTSIDE, ZF_RH_THRESHOLD, ZF_CO2_THRESHOLD, ZF_VOC_THRESHOLD = 2, 3, 4, 5, 6
+
+# Time programs: one table per ventilation profile 1-15 (table = profile - 1), 32 entries each.
+# Only these ids are ever sent: table and entry 65535 address the whole store, and an update with
+# them resets all time programs.
+PROGRAM_PROFILES = range(1, 16)
+PROGRAM_ENTRIES = 32
+PROGRAM_TYPE_FAN = 1
 
 # DeviceViewRow.deviceStatus bits
 DEV_OFFLINE, DEV_ONLINE, DEV_LOST = 1, 2, 1024
@@ -108,6 +116,37 @@ def override_payload(command, speed=0, mode=FAN_OFF, zone=ZONE_GLOBAL, duration=
 def field_payload(field_id, raw=b""):
     """DataObjectArray(RawWithId) for GlobalDataField/ZoneRowField; empty raw = read."""
     return struct.pack("<HBBI", DOA_MAGIC, DOA_RAW_WITH_ID, 4 + len(raw), field_id) + raw
+
+
+def program_payload(profile, entry, record=b""):
+    """Time program record: u16 table, u16 entry, [8-byte record], CRC-8 - no DataObjectArray."""
+    if profile not in PROGRAM_PROFILES or not 0 <= entry < PROGRAM_ENTRIES:
+        raise ValueError(f"No time program entry {entry} for profile {profile}")
+    if record and len(record) != 8:
+        raise ValueError("A time program record has 8 bytes")
+    body = struct.pack("<HH", profile - 1, entry) + record
+    return body + bytes([crc8(body)])
+
+
+def program_record(seconds, days, mode, speed):
+    """Start time in seconds of the day, days as bits (Monday 1 ... Sunday 64), fan mode and speed
+    as in UserOverride. None writes an empty record (deletes the entry)."""
+    if not 0 <= seconds < 86400 or not 0 < days < 128 or mode not in (
+            FAN_HEAT_RECOVERY, FAN_VENTILATION, FAN_OFF, FAN_STOP) or not 0 <= speed <= 4:
+        raise ValueError("Invalid time program entry")
+    return struct.pack("<IBBBB", seconds, days, mode, speed, PROGRAM_TYPE_FAN)
+
+
+def parse_program_reply(data, profile, entry):
+    """13-byte reply to a time program request; returns the entry or None if it is empty."""
+    if len(data) != 13 or crc8(data[:12]) != data[12]:
+        raise ValueError("Malformed time program reply")
+    if struct.unpack_from("<HH", data) != (profile - 1, entry):
+        raise ValueError("Time program reply for another entry")
+    seconds, days, mode, speed, kind = struct.unpack_from("<IBBBB", data, 4)
+    if not days:
+        return None
+    return {"seconds": seconds, "days": days, "mode": mode, "speed": speed, "type": kind}
 
 
 def receive_exact(connection, count):
@@ -298,6 +337,28 @@ class E16Client:
             info["devices"] = [parse_device(self._request(connection, T_DEVICE_ROW, bytes([index])))
                                for index in range(count)]
         return info
+
+    def _program_entry(self, connection, profile, entry):
+        return parse_program_reply(
+            self._request(connection, T_TIME_PROGRAM, program_payload(profile, entry)), profile, entry)
+
+    def get_time_program(self, profile):
+        """All 32 entries of a profile's time program, None for empty ones."""
+        with self._connect() as connection, _malformed_as_value_error():
+            return [self._program_entry(connection, profile, entry) for entry in range(PROGRAM_ENTRIES)]
+
+    def set_time_program_entry(self, profile, entry, record=None):
+        """Write one entry (record from program_record, None deletes it) and read it back - the
+        controller does not answer the write itself."""
+        payload = program_payload(profile, entry, record or bytes(8))
+        with self._connect() as connection, _malformed_as_value_error():
+            connection.sendall(packet(T_TIME_PROGRAM, payload, operation=UPDATE))
+            time.sleep(0.5)
+            stored = self._program_entry(connection, profile, entry)
+        expected = parse_program_reply(payload, profile, entry) if record else None
+        if stored != expected:
+            raise ValueError(f"Time program entry {entry} of profile {profile} was not stored")
+        return stored
 
     def user_override(self, command, speed=0, mode=FAN_OFF, zone=ZONE_GLOBAL, duration=0):
         return self._update(T_USER_OVERRIDE, override_payload(command, speed, mode, zone, duration))

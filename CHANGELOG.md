@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Client: read the time program of a ventilation profile and write or delete single entries,
+  each write read back (#9). Not used by Home Assistant entities yet. Packet 48 documented in
+  `docs/protocol.md`.
+
 ## 0.3.11 – 2026-10-14
 
 - **Fan on/off** follows fan speed and mode instead of playback: playback often lags behind a

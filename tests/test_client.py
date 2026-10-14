@@ -4,6 +4,7 @@
 
 The byte strings are real e16 replies with names and timestamps replaced; they contain no keys.
 """
+import contextlib
 import importlib.util
 from pathlib import Path
 import struct
@@ -172,3 +173,86 @@ def test_other_tls_errors_are_not_auth_errors(monkeypatch):
     _failing_handshake(monkeypatch, error)
     with pytest.raises(client.ssl.SSLError):
         client.E16Client("192.0.2.1", "0102030405060708").get_zone()
+
+
+def _program_reply(profile, entry, record):
+    body = struct.pack("<HH", profile - 1, entry) + record
+    return client.packet(client.T_TIME_PROGRAM, body + bytes([client.crc8(body)]),
+                         operation=client.RESPONSE)
+
+
+def test_time_program_request_is_bare_record_with_crc():
+    # Profile value = table + 1: custom profile 2 (value 8) is table 7
+    assert client.program_payload(8, 0) == bytes.fromhex("07000000e1")
+    assert client.program_payload(8, 1) == bytes.fromhex("07000100b5")
+
+
+@pytest.mark.parametrize(("profile", "entry"), [(0, 0), (16, 0), (1, 32), (65536, 0), (1, 65535)])
+def test_time_program_ids_outside_the_tables_are_never_sent(profile, entry):
+    with pytest.raises(ValueError):
+        client.program_payload(profile, entry)
+
+
+def test_time_program_record_and_reply():
+    record = client.program_record(12 * 3600, 0b0000001, client.FAN_HEAT_RECOVERY, 2)
+    assert record == bytes.fromhex("c0a8000001010201")
+    reply = _program_reply(15, 0, record)
+    assert client.parse_program_reply(reply[10:reply[1]], 15, 0) == {
+        "seconds": 43200, "days": 1, "mode": 1, "speed": 2, "type": 1}
+    empty = _program_reply(15, 3, bytes(8))
+    assert client.parse_program_reply(empty[10:empty[1]], 15, 3) is None
+
+
+@pytest.mark.parametrize("args", [(86400, 1, 1, 1), (0, 0, 1, 1), (0, 128, 1, 1), (0, 1, 0, 1),
+                                  (0, 1, 1, 5)])
+def test_invalid_time_program_record(args):
+    with pytest.raises(ValueError):
+        client.program_record(*args)
+
+
+def test_time_program_reply_for_other_entry_or_bad_crc():
+    reply = _program_reply(15, 1, bytes(8))[10:]
+    with pytest.raises(ValueError):
+        client.parse_program_reply(reply, 15, 0)
+    with pytest.raises(ValueError):
+        client.parse_program_reply(reply[:-1] + bytes([reply[-1] ^ 1]), 15, 1)
+
+
+class RecordingConnection(FakeConnection):
+    def __init__(self, stream):
+        super().__init__(stream)
+        self.sent = []
+
+    def sendall(self, data):
+        self.sent.append(data)
+
+
+def _client_with(monkeypatch, connection):
+    e16 = client.E16Client("192.0.2.1", "0102030405060708")
+    monkeypatch.setattr(e16, "_connect", contextlib.contextmanager(lambda: (yield connection)))
+    monkeypatch.setattr(client.time, "sleep", lambda seconds: None)
+    return e16
+
+
+def test_time_program_write_is_read_back(monkeypatch):
+    record = client.program_record(6 * 3600, 0b0011111, client.FAN_VENTILATION, 3)
+    connection = RecordingConnection(_program_reply(15, 2, record))
+    stored = _client_with(monkeypatch, connection).set_time_program_entry(15, 2, record)
+    assert stored["seconds"] == 21600 and stored["speed"] == 3
+    write, read = connection.sent
+    assert (write[3], write[4]) == (client.T_TIME_PROGRAM, client.UPDATE)
+    assert write[10:] == client.program_payload(15, 2, record)
+    assert (read[4], read[10:]) == (client.DATA_REQUEST, client.program_payload(15, 2))
+
+
+def test_time_program_write_not_stored(monkeypatch):
+    record = client.program_record(6 * 3600, 1, client.FAN_VENTILATION, 3)
+    connection = RecordingConnection(_program_reply(15, 2, bytes(8)))
+    with pytest.raises(ValueError):
+        _client_with(monkeypatch, connection).set_time_program_entry(15, 2, record)
+
+
+def test_time_program_delete(monkeypatch):
+    connection = RecordingConnection(_program_reply(15, 2, bytes(8)))
+    assert _client_with(monkeypatch, connection).set_time_program_entry(15, 2) is None
+    assert connection.sent[0][14:22] == bytes(8)
