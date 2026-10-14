@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.inventer_e16.client import FOREVER
-from custom_components.inventer_e16.fan import E16Fan
+from custom_components.inventer_e16.fan import PROGRAM_PROFILES, E16Fan, program_response
 from custom_components.inventer_e16.sensor import override_active
 
 
@@ -43,3 +43,19 @@ def _record(command, duration):
 ])
 def test_override_active(record, timer, active):
     assert override_active(record, timer) is active
+
+
+def test_time_program_profiles_are_the_ones_with_a_table():
+    assert PROGRAM_PROFILES["bedroom"] == 1 and PROGRAM_PROFILES["custom_9"] == 15
+    assert len(PROGRAM_PROFILES) == 15 and "cellar_heat_recovery" not in PROGRAM_PROFILES
+
+
+def test_time_program_response():
+    entries = [None] * 32
+    entries[0] = {"seconds": 0, "days": 0b0011111, "mode": 1, "speed": 1, "type": 1}
+    entries[5] = {"seconds": 21 * 3600 + 30 * 60, "days": 0b1100000, "mode": 4, "speed": 0, "type": 1}
+    assert program_response(1, entries) == {"profile": "bedroom", "entries": [
+        {"entry": 0, "time": "00:00", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+         "mode": "heat_recovery", "speed": 1},
+        {"entry": 5, "time": "21:30", "days": ["saturday", "sunday"], "mode": "pause_open", "speed": 0},
+    ]}

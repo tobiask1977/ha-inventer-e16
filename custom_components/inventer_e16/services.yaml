@@ -28,3 +28,29 @@ set_mode:
           max: 480
           step: 15
           unit_of_measurement: min
+get_time_program:
+  target:
+    entity:
+      integration: inventer_e16
+      domain: fan
+  fields:
+    profile:
+      selector:
+        select:
+          translation_key: time_program_profile
+          options:
+            - bedroom
+            - childrens_room
+            - bathroom
+            - living_room
+            - kitchen
+            - holiday
+            - custom_1
+            - custom_2
+            - custom_3
+            - custom_4
+            - custom_5
+            - custom_6
+            - custom_7
+            - custom_8
+            - custom_9

@@ -44,6 +44,20 @@ data:
 Speed and mode are **time-limited commands** exactly like in the app: when the command duration
 ends, the controller returns to its profile. Permanent changes are made through the profile.
 
+**`inventer_e16.get_time_program`** returns the time program of a ventilation profile (default: the
+current one; the automatic and cellar profiles have none) – read only for now:
+
+```yaml
+action: inventer_e16.get_time_program
+target:
+  entity_id: fan.my_inventer
+data:
+  profile: bedroom     # bedroom … holiday, custom_1 … custom_9
+response_variable: program
+```
+
+Each entry has `time`, `days`, `mode` (as in `set_mode`) and `speed`.
+
 ## Requirements
 
 - Easy Connect e16 with Wi-Fi module, connected to your network (set up with the official app)
@@ -103,7 +117,7 @@ are current – sending only the brand name `inventer`. Switch it off in the int
 ## Limitations
 
 - Only the first zone of a controller is supported (multi-zone systems: please open an issue).
-- Time programs and custom profiles cannot be edited.
+- Time programs can be read, not yet edited; custom profiles cannot be edited.
 - Firmware cannot be installed from Home Assistant.
 - Tested with one installation (two fan units, indoor and outdoor sensor).
 

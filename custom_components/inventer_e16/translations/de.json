@@ -78,6 +78,16 @@
           "description": "15 min bis 8 h. Ohne Angabe: die eingestellte Befehlsdauer."
         }
       }
+    },
+    "get_time_program": {
+      "name": "Zeitprogramm lesen",
+      "description": "Liest das Zeitprogramm eines Lüftungsprofils (nur lesen). Antwort: Einträge mit Uhrzeit, Wochentagen, Modus und Stufe.",
+      "fields": {
+        "profile": {
+          "name": "Profil",
+          "description": "Standard: das aktuelle Profil der Zone."
+        }
+      }
     }
   },
   "selector": {
@@ -87,6 +97,25 @@
         "ventilation": "Durchlüftung",
         "pause": "Pause, Klappe zu",
         "pause_open": "Pause, Klappe offen"
+      }
+    },
+    "time_program_profile": {
+      "options": {
+        "bedroom": "Schlafzimmer",
+        "childrens_room": "Kinderzimmer",
+        "bathroom": "Badezimmer",
+        "living_room": "Wohnzimmer",
+        "kitchen": "Küche",
+        "holiday": "Urlaub",
+        "custom_1": "Benutzerdefiniertes Profil 1",
+        "custom_2": "Benutzerdefiniertes Profil 2",
+        "custom_3": "Benutzerdefiniertes Profil 3",
+        "custom_4": "Benutzerdefiniertes Profil 4",
+        "custom_5": "Benutzerdefiniertes Profil 5",
+        "custom_6": "Benutzerdefiniertes Profil 6",
+        "custom_7": "Benutzerdefiniertes Profil 7",
+        "custom_8": "Benutzerdefiniertes Profil 8",
+        "custom_9": "Benutzerdefiniertes Profil 9"
       }
     }
   },

@@ -78,6 +78,16 @@
           "description": "15 min to 8 h. Default: the command duration entity."
         }
       }
+    },
+    "get_time_program": {
+      "name": "Get time program",
+      "description": "Reads the time program of a ventilation profile (read only). Response: entries with time, weekdays, mode and speed.",
+      "fields": {
+        "profile": {
+          "name": "Profile",
+          "description": "Default: the zone's current profile."
+        }
+      }
     }
   },
   "selector": {
@@ -87,6 +97,25 @@
         "ventilation": "Ventilation",
         "pause": "Pause, flap closed",
         "pause_open": "Pause, flap open"
+      }
+    },
+    "time_program_profile": {
+      "options": {
+        "bedroom": "Bedroom",
+        "childrens_room": "Children's room",
+        "bathroom": "Bathroom",
+        "living_room": "Living room",
+        "kitchen": "Kitchen",
+        "holiday": "Holiday",
+        "custom_1": "Custom profile 1",
+        "custom_2": "Custom profile 2",
+        "custom_3": "Custom profile 3",
+        "custom_4": "Custom profile 4",
+        "custom_5": "Custom profile 5",
+        "custom_6": "Custom profile 6",
+        "custom_7": "Custom profile 7",
+        "custom_8": "Custom profile 8",
+        "custom_9": "Custom profile 9"
       }
     }
   },
