@@ -5,10 +5,21 @@ from homeassistant.const import Platform
 from homeassistant.helpers import device_registry as dr
 
 from . import coordinator
-from .const import CONF_DEVICE_ID, DOMAIN
+from .const import CONF_DEVICE_ID, CONF_FIRMWARE_CATALOG, DOMAIN
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.FAN, Platform.BUTTON,
              Platform.NUMBER, Platform.SELECT, Platform.UPDATE]
+
+
+async def async_migrate_entry(hass, entry):
+    """1.1 -> 1.2: the firmware catalog became opt-in. Entries that never stored the option had it
+    on, so store that explicitly - an update must not silently switch it off."""
+    if entry.version > 1:
+        return False
+    if entry.minor_version < 2:
+        options = {CONF_FIRMWARE_CATALOG: True, **entry.options}
+        hass.config_entries.async_update_entry(entry, options=options, minor_version=2)
+    return True
 
 
 async def async_setup_entry(hass, entry):

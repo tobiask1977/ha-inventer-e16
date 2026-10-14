@@ -183,7 +183,7 @@
         },
         "data_description": {
           "scan_interval": "Wie oft der Zonenstatus gelesen wird, 15 bis 3600 s. Nach einem Befehl wird ohnehin sofort gelesen.",
-          "firmware_catalog": "Fragt einmal am Tag die Hersteller-Cloud, welche Firmware aktuell ist. Es werden keine Daten deiner Anlage gesendet."
+          "firmware_catalog": "Standardmäßig aus. Fragt einmal am Tag die Hersteller-Cloud, welche Firmware aktuell ist – gesendet wird nur der Markenname, die Cloud sieht aber deine öffentliche IP-Adresse. Ohne die Abfrage zeigen die Firmware-Entitäten nur die installierte Version."
         }
       }
     }

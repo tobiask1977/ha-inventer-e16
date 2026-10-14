@@ -25,7 +25,7 @@ controller – over your Wi-Fi, without the manufacturer's cloud.
 | Zone | Speed, playback, mode, timer, indoor/outdoor temperature and humidity, CO₂/VOC (if a sensor is present), system status, last command |
 | **Humidity** | Dew point and absolute humidity indoor/outdoor, dew point difference, and *Ventilation dries* – whether outdoor air would actually remove moisture (useful for cellars) |
 | **Maintenance** | Filter change and service: due date, days left, "due" flags from the controller, interval selection, *confirm* buttons |
-| **Firmware** | Update entities for Wi-Fi module, controller, fans and sensors, compared against the manufacturer's firmware catalog (can be disabled). Installing stays with the official app |
+| **Firmware** | Update entities for Wi-Fi module, controller, fans and sensors, compared against the manufacturer's firmware catalog (opt-in, see Privacy). Installing stays with the official app |
 | Radio devices | Each fan and sensor as its own device: radio signal, runtime, temperature, humidity, battery; *battery low*, *radio device missing* and *alarm* flags |
 | Diagnostics | Fan power per speed level and reversal interval (read only); downloadable diagnostics with PSK, host and device ID redacted |
 
@@ -129,9 +129,12 @@ controller rejects the stored key, Home Assistant asks for the new one by itself
 
 ## Privacy
 
-Everything runs locally on TCP 47820. The only exception is the optional firmware check: once a
-day the integration asks the manufacturer's firmware catalog (a Firebase function) which versions
-are current – sending only the brand name `inventer`. Switch it off in the integration options.
+Everything runs locally on TCP 47820. The only exception is the optional firmware check, **off by
+default** since 0.3.14: switched on in the integration options, the integration asks the
+manufacturer's firmware catalog (a Firebase function) once a day which versions are current. It
+sends only the brand name `inventer`, but the manufacturer's cloud sees your public IP address and
+the Home Assistant version. Without it, the firmware entities show the installed version only.
+Installations set up before 0.3.14 keep the check switched on.
 
 ## Limitations
 

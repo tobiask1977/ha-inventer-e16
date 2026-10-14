@@ -18,7 +18,7 @@ from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
 from .client import E16AuthError, E16Client
 from .const import (CONF_DEVICE_ID, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
-                    DEFAULT_SCAN_INTERVAL, DOMAIN, MAX_SCAN_INTERVAL, MIN_SCAN_INTERVAL)
+                    DEFAULT_FIRMWARE_CATALOG, DEFAULT_SCAN_INTERVAL, DOMAIN, MAX_SCAN_INTERVAL, MIN_SCAN_INTERVAL)
 
 PSK_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
@@ -29,6 +29,8 @@ def _clean_psk(value):
 
 class E16ConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+    # 2: firmware catalog off by default (older entries keep it on, see async_migrate_entry)
+    MINOR_VERSION = 2
 
     def __init__(self):
         self._discovered = {}
@@ -151,6 +153,6 @@ class E16OptionsFlow(OptionsFlowWithReload):
                              default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)):
                     vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)),
                 vol.Required(CONF_FIRMWARE_CATALOG,
-                             default=options.get(CONF_FIRMWARE_CATALOG, True)): bool,
+                             default=options.get(CONF_FIRMWARE_CATALOG, DEFAULT_FIRMWARE_CATALOG)): bool,
             }),
         )

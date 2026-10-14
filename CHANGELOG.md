@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Firmware check opt-in** (#6): new installations no longer ask the manufacturer's cloud; switch
+  it on in the options. Existing installations keep it on (config entry migration 1.1 → 1.2), an
+  explicit choice is kept.
+
 ## 0.3.13 – 2026-10-14
 
 - **Services `set_time_program_entry` and `delete_time_program_entry`**: change one entry of a

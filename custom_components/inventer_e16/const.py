@@ -7,6 +7,9 @@ DOMAIN = "inventer_e16"
 CONF_DEVICE_ID = "device_id"
 CONF_PSK = "psk"
 CONF_FIRMWARE_CATALOG = "firmware_catalog"
+# Off for new entries: the integration stays local unless the user opts in (issue #6). Entries
+# created before 0.3.14 (minor version 1) keep the check on through the migration in __init__.
+DEFAULT_FIRMWARE_CATALOG = False
 CONF_SCAN_INTERVAL = "scan_interval"
 # Zone polling in seconds; each poll is a new TLS session on the controller
 DEFAULT_SCAN_INTERVAL = 30

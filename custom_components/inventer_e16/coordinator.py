@@ -15,7 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .client import E16AuthError, E16Client
 from .const import (CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
-                    DEFAULT_SCAN_INTERVAL)
+                    DEFAULT_FIRMWARE_CATALOG, DEFAULT_SCAN_INTERVAL)
 
 LOGGER = logging.getLogger(__package__)
 CATALOG_INTERVAL = timedelta(hours=24)
@@ -80,7 +80,7 @@ class E16InfoCoordinator(DataUpdateCoordinator):
             raise ConfigEntryAuthFailed("The controller rejected the PSK") from error
         except (OSError, ValueError) as error:
             raise UpdateFailed(f"Reading e16 maintenance data failed: {error}") from error
-        if not self.config_entry.options.get(CONF_FIRMWARE_CATALOG, True):
+        if not self.config_entry.options.get(CONF_FIRMWARE_CATALOG, DEFAULT_FIRMWARE_CATALOG):
             self.catalog = None
         elif self._catalog_at is None or dt_util.utcnow() - self._catalog_at > CATALOG_INTERVAL:
             await self._async_fetch_catalog()

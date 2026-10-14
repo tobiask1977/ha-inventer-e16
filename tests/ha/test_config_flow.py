@@ -156,3 +156,34 @@ async def test_options_reject_too_short_polling_interval(hass):
     with pytest.raises(InvalidData):
         await hass.config_entries.options.async_configure(
             result["flow_id"], {"scan_interval": 5, "firmware_catalog": True})
+
+
+async def test_new_entry_has_firmware_catalog_off(hass):
+    with patch(CLIENT) as client, patch(SETUP, return_value=True):
+        _client(client)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], DATA)
+    entry = result["result"]
+    assert entry.minor_version == 2 and "firmware_catalog" not in entry.options
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    defaults = {key.schema: key.default() for key in result["data_schema"].schema}
+    assert defaults["firmware_catalog"] is False
+
+
+async def _migrate(hass, options):
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="ABCDE-FGHIJ", data=DATA, options=options,
+                            version=1, minor_version=1)
+    entry.add_to_hass(hass)
+    with patch(SETUP, return_value=True):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+    return entry
+
+
+async def test_migration_keeps_firmware_catalog_on_for_old_entries(hass):
+    entry = await _migrate(hass, {})
+    assert entry.minor_version == 2 and entry.options == {"firmware_catalog": True}
+
+
+async def test_migration_keeps_an_explicit_choice(hass):
+    entry = await _migrate(hass, {"firmware_catalog": False, "scan_interval": 60})
+    assert entry.options == {"firmware_catalog": False, "scan_interval": 60}
