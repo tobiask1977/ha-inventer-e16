@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
-"""Zone status every 30 s, maintenance/firmware every 10 min, vendor catalog once a day."""
+"""Zone status every 30 s (option), maintenance/firmware every 10 min, vendor catalog once a day."""
 from dataclasses import dataclass
 from datetime import timedelta
 import logging
@@ -14,7 +14,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .client import E16AuthError, E16Client
-from .const import CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK
+from .const import (CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
+                    DEFAULT_SCAN_INTERVAL)
 
 LOGGER = logging.getLogger(__package__)
 CATALOG_INTERVAL = timedelta(hours=24)
@@ -31,7 +32,9 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry, client):
         super().__init__(
             hass, LOGGER, name=f"{entry.title} zone", config_entry=entry,
-            update_interval=timedelta(seconds=30), always_update=False,
+            update_interval=timedelta(
+                seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
+            always_update=False,
         )
         self.client = client
         # Duration for speed/mode commands; the app offers 15 min to 8 h

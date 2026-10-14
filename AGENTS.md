@@ -9,7 +9,7 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
 | Path | Content |
 |---|---|
 | `custom_components/inventer_e16/client.py` | Protocol client – **no Home Assistant imports**, testable on its own |
-| `custom_components/inventer_e16/coordinator.py` | Polling: zone every 30 s, maintenance/firmware every 10 min, vendor catalog daily |
+| `custom_components/inventer_e16/coordinator.py` | Polling: zone every 30 s (option), maintenance/firmware every 10 min, vendor catalog daily |
 | `custom_components/inventer_e16/<platform>.py` | Entities (sensor, binary_sensor, fan, button, number, select, update) |
 | `custom_components/inventer_e16/strings.json`, `translations/` | Entity names and states (English, German) |
 | `tests/test_client.py` | Protocol tests with anonymised real replies (`pytest tests`) |

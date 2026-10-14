@@ -8,6 +8,9 @@
   "dhcp": [
     {
       "hostname": "easy connect e16-*"
+    },
+    {
+      "hostname": "noname-?????-?????"
     }
   ],
   "documentation": "https://github.com/tobiask1977/ha-inventer-e16",

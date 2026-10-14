@@ -83,10 +83,13 @@ ventilation.
 device ID and PSK. Reserve the controller's IP address in your DHCP server.
 
 Home Assistant usually finds the controller by itself ("Discovered: inVENTer Easy Connect e16") with host and
-device ID already filled in – then only the PSK is needed. A new IP address is picked up automatically:
+device ID already filled in – it announces itself as `Easy Connect e16-<device id>` or `noName-<device id>` – then only the PSK is needed. A new IP address is picked up automatically:
 right away if Home Assistant sees the controller's DHCP traffic (same network), otherwise – through a router
 integration such as UniFi device trackers – at the next Home Assistant start. Reserving the address avoids
 the gap.
+
+**Options:** polling interval of the zone status (15–3600 s, default 30 s; after a command the
+status is read right away anyway) and the firmware check (see Privacy).
 
 New IP address or key later (e.g. after a factory reset)? Use **Reconfigure** on the integration; if the
 controller rejects the stored key, Home Assistant asks for the new one by itself.

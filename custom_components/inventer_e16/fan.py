@@ -15,8 +15,6 @@ HEAT_RECOVERY, VENTILATION = "heat_recovery", "ventilation"
 PRESET_TO_FAN = {HEAT_RECOVERY: client.FAN_HEAT_RECOVERY, VENTILATION: client.FAN_VENTILATION}
 # Zone status reports 1 = ventilation, 2 = heat recovery (other table than the command)
 READ_MODE_TO_PRESET = {1: VENTILATION, 2: HEAT_RECOVERY}
-# Playback in the zone status: 1 pause, 3 shut off, 4 shut down
-STOPPED = {1, 3, 4}
 SPEEDS = 4
 # Service set_mode: time-limited command with explicit mode, speed and duration - for automations.
 # The pause modes are what the app's mode dialog sends (always with speed 0); unlike turn_off they end.
@@ -47,8 +45,10 @@ class E16Fan(E16Entity, FanEntity):
 
     @property
     def is_on(self):
+        # Not from playback: after a command it often lags behind for a poll or longer, while
+        # fan speed already fits (pause and global pause report speed 0) - issue #1
         data = self.coordinator.data
-        return data["playback"] not in STOPPED and data["mode"] != 0 and data["speed"] > 0
+        return data["mode"] != 0 and data["speed"] > 0
 
     @property
     def percentage(self):

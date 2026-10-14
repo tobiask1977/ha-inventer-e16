@@ -97,6 +97,13 @@ are deliberately not used.
 
 Missing sensors report `-inf` or NaN.
 
+Reported by another user from their captures, not checked here (issues #1, #2):
+- After a command, playback (offset 18) often still shows the old value for one poll, once for
+  about four minutes. Fan speed (17) and the UserOverride record (74) fit the new state at once,
+  so the integration derives *on/off* from speed and mode, not from playback.
+- When a time-limited command runs out, the record at 74 is not rewritten; only the timer at 19
+  drops to 0. The integration shows this as `active: false` on the *last command* sensor.
+
 ### Ventilation profiles
 
 | Value | Profile | Note |

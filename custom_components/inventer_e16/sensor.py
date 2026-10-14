@@ -17,6 +17,7 @@ PLAYBACK = {0: "play", 1: "pause", 2: "boost", 3: "off", 4: "shutdown", 5: "over
 MODES = {0: "off", 1: "ventilation", 2: "heat_recovery"}
 COMMANDS = {0: "none", 1: "global_boost", 2: "global_pause", 3: "zone_boost", 4: "zone_pause",
             5: "zone_speed_mode", 6: "zone_profile", 7: "cancel", 8: "fan_off", 9: "fan_off_cancel"}
+NOT_ACTIVE = {0, 7, 9}
 ZONE_SENSORS = (
     ("speed", None, None),
     ("playback", SensorDeviceClass.ENUM, None),
@@ -106,7 +107,16 @@ class E16ZoneSensor(E16Entity, SensorEntity):
         if self.key != "last_override" or not value:
             return None
         return {"speed": value["speed"], "fan_mode": value["mode"], "zone": value["zone"],
-                "duration_s": None if value["duration"] == FOREVER else value["duration"]}
+                "duration_s": None if value["duration"] == FOREVER else value["duration"],
+                "active": override_active(value, self.coordinator.data["timer"])}
+
+
+def override_active(record, timer):
+    """Whether the last command still applies. An expired command keeps its record; only the
+    remaining timer drops to 0 (issue #2). Cancel and "fans off ended" never apply."""
+    if record["command"] in NOT_ACTIVE:
+        return False
+    return record["duration"] == FOREVER or timer > 0
 
 
 class E16DueSensor(E16Entity, SensorEntity):

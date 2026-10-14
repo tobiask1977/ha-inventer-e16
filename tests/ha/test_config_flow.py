@@ -3,8 +3,10 @@
 """Config flow: user, DHCP discovery, re-authentication and reconfigure."""
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from homeassistant.helpers.discovery_flow import DiscoveryKey
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -48,6 +50,18 @@ async def test_dhcp_discovers_new_controller(hass):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"psk": PSK})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"] == {"host": "192.0.2.10", "device_id": "ABCDE-FGHIJ", "psk": PSK}
+    assert result["result"].unique_id == "ABCDE-FGHIJ"
+
+
+async def test_dhcp_noname_host_name(hass):
+    """Some controllers announce themselves as noName-<device id> (issue #3)."""
+    other = DhcpServiceInfo(ip="192.0.2.12", hostname="noname-abcde-fghij", macaddress="5c013b000001")
+    with patch(CLIENT) as client, patch(SETUP, return_value=True):
+        _client(client)
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_DHCP}, data=other)
+        assert result["step_id"] == "dhcp_confirm"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {"psk": PSK})
     assert result["result"].unique_id == "ABCDE-FGHIJ"
 
 
@@ -131,5 +145,14 @@ async def test_options_change_reloads_entry(hass):
             result["flow_id"], {"firmware_catalog": False})
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {"firmware_catalog": False}
+    assert entry.options == {"firmware_catalog": False, "scan_interval": 30}
     assert setup.call_count == 2
+
+
+async def test_options_reject_too_short_polling_interval(hass):
+    entry = MockConfigEntry(domain=DOMAIN, unique_id="ABCDE-FGHIJ", data=DATA)
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], {"scan_interval": 5, "firmware_catalog": True})

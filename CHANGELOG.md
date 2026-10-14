@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Fan on/off** follows fan speed and mode instead of playback: playback often lags behind a
+  command, so the fan could show *off* although it was already running again (#1).
+- **Last command** sensor: new attribute `active`. A time-limited command that has run out keeps
+  its record, only the timer drops to 0 – `active` is then `false` (#2).
+- **DHCP discovery** also for controllers that announce themselves as `noName-<device id>` (#3).
+- **Option: polling interval** of the zone status, 15–3600 s, default 30 s (#8).
+
 ## 0.3.10 – 2026-10-08
 
 - No more reload when Home Assistant only records a DHCP discovery key on the entry: the

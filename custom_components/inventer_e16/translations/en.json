@@ -94,9 +94,11 @@
     "step": {
       "init": {
         "data": {
+          "scan_interval": "Polling interval (seconds)",
           "firmware_catalog": "Check the vendor firmware catalog"
         },
         "data_description": {
+          "scan_interval": "How often the zone status is read, 15 to 3600 s. After a command it is read right away anyway.",
           "firmware_catalog": "Once a day, asks the manufacturer's cloud which firmware is current. Nothing about your installation is sent."
         }
       }
@@ -152,6 +154,11 @@
       },
       "last_override": {
         "name": "Last command",
+        "state_attributes": {
+          "active": {
+            "name": "Active"
+          }
+        },
         "state": {
           "none": "None",
           "global_boost": "Boost (all)",

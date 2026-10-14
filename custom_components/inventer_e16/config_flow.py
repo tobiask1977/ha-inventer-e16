@@ -4,8 +4,8 @@
 
 Reauth starts by itself when the controller rejects the PSK (e.g. after a factory reset);
 reconfigure changes host or PSK later - both keep entities, history and dashboards.
-DHCP discovery: the controller's host name is "Easy Connect e16-<device id>" (seen on a real unit),
-so host and device id come for free and only the PSK must be entered. For a configured controller a
+DHCP discovery: the controller's host name is "Easy Connect e16-<device id>" (seen on a real unit)
+or "noName-<device id>" (reported in issue #3), so host and device id come for free and only the PSK must be entered. For a configured controller a
 new IP address is taken over automatically.
 """
 import voluptuous as vol
@@ -17,7 +17,8 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
 from .client import E16AuthError, E16Client
-from .const import CONF_DEVICE_ID, CONF_FIRMWARE_CATALOG, CONF_PSK, DOMAIN
+from .const import (CONF_DEVICE_ID, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
+                    DEFAULT_SCAN_INTERVAL, DOMAIN, MAX_SCAN_INTERVAL, MIN_SCAN_INTERVAL)
 
 PSK_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
@@ -142,8 +143,14 @@ class E16OptionsFlow(OptionsFlowWithReload):
     async def async_step_init(self, user_input=None):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
-        current = self.config_entry.options.get(CONF_FIRMWARE_CATALOG, True)
+        options = self.config_entry.options
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({vol.Required(CONF_FIRMWARE_CATALOG, default=current): bool}),
+            data_schema=vol.Schema({
+                vol.Required(CONF_SCAN_INTERVAL,
+                             default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)):
+                    vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)),
+                vol.Required(CONF_FIRMWARE_CATALOG,
+                             default=options.get(CONF_FIRMWARE_CATALOG, True)): bool,
+            }),
         )

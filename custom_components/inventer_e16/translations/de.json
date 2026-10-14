@@ -94,9 +94,11 @@
     "step": {
       "init": {
         "data": {
+          "scan_interval": "Abfrageintervall (Sekunden)",
           "firmware_catalog": "Firmware-Katalog des Herstellers abfragen"
         },
         "data_description": {
+          "scan_interval": "Wie oft der Zonenstatus gelesen wird, 15 bis 3600 s. Nach einem Befehl wird ohnehin sofort gelesen.",
           "firmware_catalog": "Fragt einmal am Tag die Hersteller-Cloud, welche Firmware aktuell ist. Es werden keine Daten deiner Anlage gesendet."
         }
       }
@@ -152,6 +154,11 @@
       },
       "last_override": {
         "name": "Letzter Befehl",
+        "state_attributes": {
+          "active": {
+            "name": "Aktiv"
+          }
+        },
         "state": {
           "none": "Keiner",
           "global_boost": "Boost (alle)",
