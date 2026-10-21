@@ -4,17 +4,17 @@
     "step": {
       "dhcp_confirm": {
         "title": "inVENTer-Regler gefunden",
-        "description": "Easy Connect e16 unter {host} gefunden (Gerätekennung {device_id}). PSK eingeben – einmalig per Bluetooth mit tools/e16_onboard.py auslesen.",
+        "description": "Easy Connect e16 unter {host} gefunden (Gerätekennung {device_id}). PSK eingeben – einmalig per Bluetooth mit tools/e16_onboard.py oder einer BLE-App auf dem Handy auslesen.",
         "data": {
           "psk": "PSK"
         },
         "data_description": {
-          "psk": "Pre-Shared Key als 16 Hex-Zeichen aus dem Aufnahme-Werkzeug."
+          "psk": "Pre-Shared Key als 16 Hex-Zeichen; Leerzeichen, Bindestriche und 0x wie in BLE-Apps sind in Ordnung."
         }
       },
       "user": {
         "title": "inVENTer Easy Connect e16",
-        "description": "Der Regler muss im WLAN sein. Gerätekennung und PSK einmalig per Bluetooth mit tools/e16_onboard.py auslesen.",
+        "description": "Der Regler muss im WLAN sein. Gerätekennung und PSK einmalig per Bluetooth mit tools/e16_onboard.py oder einer BLE-App auf dem Handy auslesen.",
         "data": {
           "host": "Host",
           "device_id": "Gerätekennung",
@@ -22,18 +22,18 @@
         },
         "data_description": {
           "host": "IP-Adresse oder Hostname des Reglers (im DHCP-Server reservieren).",
-          "device_id": "Gerätekennung aus dem Aufnahme-Werkzeug, z. B. ABCDE-FGHIJ.",
-          "psk": "Pre-Shared Key als 16 Hex-Zeichen aus dem Aufnahme-Werkzeug."
+          "device_id": "Gerätekennung, z. B. ABCDE-FGHIJ – als Text oder als Hex aus einer BLE-App.",
+          "psk": "Pre-Shared Key als 16 Hex-Zeichen; Leerzeichen, Bindestriche und 0x wie in BLE-Apps sind in Ordnung."
         }
       },
       "reauth_confirm": {
         "title": "Regler lehnt den PSK ab",
-        "description": "Der Regler unter {host} nimmt den gespeicherten Schlüssel nicht mehr an – meist nach einem Werksreset oder einem getauschten Regler. PSK mit tools/e16_onboard.py neu auslesen.",
+        "description": "Der Regler unter {host} nimmt den gespeicherten Schlüssel nicht mehr an – meist nach einem Werksreset oder einem getauschten Regler. PSK mit tools/e16_onboard.py oder einer BLE-App neu auslesen.",
         "data": {
           "psk": "PSK"
         },
         "data_description": {
-          "psk": "Pre-Shared Key als 16 Hex-Zeichen aus dem Aufnahme-Werkzeug."
+          "psk": "Pre-Shared Key als 16 Hex-Zeichen; Leerzeichen, Bindestriche und 0x wie in BLE-Apps sind in Ordnung."
         }
       },
       "reconfigure": {

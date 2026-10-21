@@ -4,17 +4,17 @@
     "step": {
       "dhcp_confirm": {
         "title": "inVENTer controller found",
-        "description": "Found an Easy Connect e16 at {host} (device ID {device_id}). Enter its PSK - read it once over Bluetooth with tools/e16_onboard.py.",
+        "description": "Found an Easy Connect e16 at {host} (device ID {device_id}). Enter its PSK - read it once over Bluetooth with tools/e16_onboard.py or a BLE app on your phone.",
         "data": {
           "psk": "PSK"
         },
         "data_description": {
-          "psk": "Pre-shared key as 16 hex characters, printed by the onboarding tool."
+          "psk": "Pre-shared key as 16 hex characters; spaces, dashes and 0x as shown by BLE apps are fine."
         }
       },
       "user": {
         "title": "inVENTer Easy Connect e16",
-        "description": "The controller must be on your Wi-Fi. Read device ID and PSK once over Bluetooth with tools/e16_onboard.py.",
+        "description": "The controller must be on your Wi-Fi. Read device ID and PSK once over Bluetooth with tools/e16_onboard.py or a BLE app on your phone.",
         "data": {
           "host": "Host",
           "device_id": "Device ID",
@@ -22,18 +22,18 @@
         },
         "data_description": {
           "host": "IP address or host name of the controller (reserve it in your DHCP server).",
-          "device_id": "Device identity printed by the onboarding tool, e.g. ABCDE-FGHIJ.",
-          "psk": "Pre-shared key as 16 hex characters, printed by the onboarding tool."
+          "device_id": "Device identity, e.g. ABCDE-FGHIJ - as text or as hex from a BLE app.",
+          "psk": "Pre-shared key as 16 hex characters; spaces, dashes and 0x as shown by BLE apps are fine."
         }
       },
       "reauth_confirm": {
         "title": "Controller rejected the PSK",
-        "description": "The controller at {host} no longer accepts the stored key - usually after a factory reset or a replaced controller. Read the PSK again with tools/e16_onboard.py.",
+        "description": "The controller at {host} no longer accepts the stored key - usually after a factory reset or a replaced controller. Read the PSK again with tools/e16_onboard.py or a BLE app.",
         "data": {
           "psk": "PSK"
         },
         "data_description": {
-          "psk": "Pre-shared key as 16 hex characters, printed by the onboarding tool."
+          "psk": "Pre-shared key as 16 hex characters; spaces, dashes and 0x as shown by BLE apps are fine."
         }
       },
       "reconfigure": {

@@ -56,34 +56,50 @@ app – but the controller hands it out over Bluetooth LE while it is in pairing
 
 ## Without Python: a BLE app on your phone
 
-Instead of the tool you can read the two values with a generic Bluetooth LE app on your phone
-(e.g. nRF Connect or a BLE scanner app; Android and iOS). Nothing needs to be installed on a computer.
+No computer needed: a free Bluetooth app on your phone can read the two values as well. The
+screenshots show **nRF Connect** on an iPhone (also available for Android, where the screens look
+slightly different). The values in the pictures are examples.
 
-1. Put the controller into **pairing mode** (LED blinks blue, see step 2 above).
-2. In the app, scan and connect to the controller (it appears as *Easy Connect e16*).
-3. Among its services, find these two characteristics and **read** each once:
+1. Install **nRF Connect** from the App Store or Google Play.
+2. Put the controller into **pairing mode**: hold the mode button for about 4 seconds until the
+   **LED blinks blue**.
+3. Open nRF Connect, tap **Scan** and then **Connect** next to **Easy Connect e16**.
 
-   | Value | Characteristic UUID | Shown as |
+   ![nRF Connect: connected to Easy Connect e16](images/ble-app-1-connected.png)
+
+4. Switch to the list of services (second icon at the top). Scroll to the service starting with
+   **E6834E4B**. It lists several long codes – two of them are needed:
+
+   ![The two characteristics for PSK and device ID](images/ble-app-2-characteristics.png)
+
+   | Value | Characteristic | Show as |
    |---|---|---|
-   | Device ID | `673de933-963b-4298-bfc1-b0ccdada690a` | text (switch the app's display to text/UTF-8 if it shows bytes); ignore trailing zero bytes |
-   | PSK | `638ff62c-3823-4e0f-8179-1695c46ee8ad` | 8 bytes in hex, e.g. `(0x) 01-23-45-67-89-AB-CD-EF` or `0123 4567 89AB CDEF` |
+   | **PSK** | `638FF62C-…-1695C46EE8`**`AD`** | Byte Array (Hex) |
+   | **Device ID** | `673DE933-963B-4298-BFC1-B0CCDADA690A` | UTF-8 (text) |
 
-   Careful: a neighbouring characteristic differs only in the last character (`…8af`). The PSK is
-   the one ending in **`…8ad`**. On iPhone/Mac the controller advertises only its name and the
-   standard *Device Information* service – the two characteristics show up after connecting.
+   Careful: the code right above the PSK looks almost the same but ends in **`…AF`**. That one
+   only shows `00` – the PSK is the one ending in **`…AD`**.
 
-   Apps decode a value as text or as bytes depending on a per-characteristic setting (in nRF
-   Connect the **“99” button → data parser**). Use **UTF-8** for the device ID and **Byte Array
-   (Hex)** for the PSK – shown as text, the PSK turns into a few odd characters that cannot be
-   entered in Home Assistant. Tested with nRF Connect on iOS.
+5. Tap the **arrow down** (↓) next to each of the two. This **reads** the value. Never tap the
+   arrow up (↑) – that would write to the controller.
 
-4. Enter both in Home Assistant. The PSK can be pasted as the app shows it – `0x`, dashes,
-   colons and spaces are removed. If Home Assistant discovered the controller by itself, the
-   device ID is already filled in and only the PSK is needed.
+   ![Device ID read, shown as hex](images/ble-app-3-device-id.png)
 
-Only **read** – do not write to any characteristic. Read before anything confirms the pairing PIN
-(otherwise the key comes back as zeros). Afterwards disconnect and clear the app's log, which may
-contain the key.
+6. The app can show a value as text or as hex. Tap the **“99”** button to change it: **Byte Array
+   (Hex)** for the PSK, **UTF-8** for the device ID. If the PSK shows a few odd characters,
+   it is set to text – switch it to hex.
+
+   ![Choosing how a value is shown](images/ble-app-4-parser.png)
+
+7. In Home Assistant enter both values. You can type them exactly as the app shows them – spaces,
+   dashes and `0x` are ignored, and the device ID may also be entered as hex. If Home Assistant
+   found the controller by itself, the device ID is already filled in and only the PSK is needed.
+8. Tap **Disconnect** and clear the app's log (it may contain the key). Delete screenshots that
+   show the key.
+
+**Troubleshooting:** If the PSK reads as `00` or only zeros, the controller was not in pairing mode
+or the pairing was already confirmed – start pairing mode again and read right away. Tested with
+nRF Connect on iOS; other BLE apps work the same way.
 
 ## Good to know
 
@@ -130,16 +146,29 @@ ein Rechner mit Bluetooth LE und Python 3.10+; ein paar Meter Abstand zum Regler
 5. In Home Assistant *Einstellungen → Geräte & Dienste → Integration hinzufügen → inVENTer Easy
    Connect e16*, IP-Adresse, Gerätekennung und PSK eintragen.
 
-**Ohne Python, mit dem Handy:** Statt des Tools geht auch eine allgemeine Bluetooth-LE-App (z. B.
-nRF Connect oder eine BLE-Scanner-App). Regler in den Kopplungsmodus bringen, in der App mit
-*Easy Connect e16* verbinden und zwei Characteristics je einmal **lesen**: Gerätekennung
-`673de933-963b-4298-bfc1-b0ccdada690a` (Text, Nullbytes am Ende ignorieren) und PSK
-`638ff62c-3823-4e0f-8179-1695c46ee8ad` (8 Bytes hex, z. B. `(0x) 01-23-45-67-89-AB-CD-EF` oder
-`0123 4567 89AB CDEF`; Achtung, eine Nachbar-Characteristic endet auf `…8af`). Die Anzeige stellt man je Characteristic
-um (nRF Connect: Button „99“): Gerätekennung als UTF-8, PSK als Byte Array (Hex) – als Text wird der
-PSK zu Zeichensalat. Getestet mit nRF Connect unter iOS. Den PSK
-kann man so in Home Assistant einfügen, `0x`, Bindestriche und Doppelpunkte werden entfernt. Nichts
-schreiben, und danach das Log der App löschen, weil der Schlüssel darin stehen kann.
+### Ohne Python, mit dem Handy
+
+Es geht auch ganz ohne Rechner, mit einer kostenlosen Bluetooth-App. Die Bilder oben zeigen
+**nRF Connect** auf dem iPhone (gibt es auch für Android, dort sieht es etwas anders aus).
+
+1. **nRF Connect** aus dem App Store bzw. Google Play installieren.
+2. Regler in den **Kopplungsmodus** bringen: Modustaste etwa 4 Sekunden halten, bis die **LED blau
+   blinkt**.
+3. In nRF Connect **Scan** antippen und bei **Easy Connect e16** auf **Connect** tippen
+   ([Bild](images/ble-app-1-connected.png)).
+4. Zur Liste der Services wechseln (zweites Symbol oben) und zum Service **E6834E4B** scrollen
+   ([Bild](images/ble-app-2-characteristics.png)). Gebraucht werden zwei Einträge:
+   - **PSK:** `638FF62C-…-1695C46EE8`**`AD`**, Anzeige **Byte Array (Hex)**. Achtung: Der Eintrag
+     direkt darüber sieht fast gleich aus, endet aber auf **`…AF`** und zeigt nur `00`.
+   - **Gerätekennung:** `673DE933-963B-4298-BFC1-B0CCDADA690A`, Anzeige **UTF-8**.
+5. Bei beiden den **Pfeil nach unten** (↓) antippen, damit wird der Wert gelesen. Nie den Pfeil
+   nach oben (↑) antippen, der schreibt in den Regler.
+6. Die Anzeige stellt man mit dem Button **„99“** um ([Bild](images/ble-app-4-parser.png)). Zeigt
+   der PSK ein paar komische Zeichen, steht er auf Text und muss auf Hex.
+7. Beide Werte in Home Assistant eintragen, so wie die App sie zeigt. Leerzeichen, Bindestriche und
+   `0x` stören nicht, und die Gerätekennung darf auch als Hex eingegeben werden. Hat Home Assistant
+   den Regler selbst gefunden, ist die Gerätekennung schon ausgefüllt.
+8. **Disconnect** antippen, das Log der App löschen und Screenshots mit dem Schlüssel löschen.
 
 **Wichtig:** `read` liest nur und ändert nichts am Regler – die App funktioniert weiter. Identität
 und PSK müssen **vor** einer PIN-Bestätigung gelesen werden, danach liefert der Regler Nullen. Den

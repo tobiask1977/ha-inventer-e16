@@ -31,6 +31,18 @@ def _clean_psk(value):
     return re.sub(r"[\s:-]", "", value)
 
 
+def _clean_device_id(value):
+    """Accept the ID as text or as the hex bytes a BLE app shows (e.g. "4142 4344 452D ...")."""
+    value = (value or "").strip()
+    raw = _clean_psk(value)
+    if re.fullmatch(r"(?:[0-9a-f]{2})+", raw):
+        text = bytes.fromhex(raw).rstrip(bytes(1))
+        # Real IDs contain a dash, which is no hex digit - so text input never ends up here
+        if b"-" in text and text.isascii() and text.decode("ascii").isprintable():
+            return text.decode("ascii")
+    return value
+
+
 class E16ConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
     # 2: firmware catalog off by default (older entries keep it on, see async_migrate_entry)
@@ -53,11 +65,12 @@ class E16ConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             user_input[CONF_PSK] = _clean_psk(user_input[CONF_PSK])
+            user_input[CONF_DEVICE_ID] = _clean_device_id(user_input[CONF_DEVICE_ID])
             zone, error = await self._async_check(user_input[CONF_HOST], user_input[CONF_PSK])
             if error:
                 errors["base"] = error
             else:
-                await self.async_set_unique_id(user_input[CONF_DEVICE_ID].strip())
+                await self.async_set_unique_id(user_input[CONF_DEVICE_ID])
                 self._abort_if_unique_id_configured(updates={CONF_HOST: user_input[CONF_HOST]})
                 title = f"inVENTer {zone['name']}" if zone["name"] else "inVENTer e16"
                 return self.async_create_entry(title=title, data=user_input)

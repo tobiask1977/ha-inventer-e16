@@ -91,6 +91,8 @@ The controller encrypts the local connection with a key that is individual per d
 never shows it, but the controller hands it out over Bluetooth while in pairing mode.
 Step-by-step guide with troubleshooting: **[docs/onboarding.md](docs/onboarding.md)**
 (also in German).
+No computer at hand? It also works with a free Bluetooth app on your phone:
+**[step by step with screenshots](docs/onboarding.md#without-python-a-ble-app-on-your-phone)**.
 
 ```bash
 pip install -r tools/requirements.txt
