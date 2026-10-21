@@ -42,8 +42,7 @@ async def test_user_flow(hass):
 
 
 @pytest.mark.parametrize("typed", ["(0x) 01-02-03-04-05-06-07-08", "0x0102030405060708",
-                                   "01:02:03:04:05:06:07:08", " 0102030405060708
-"])
+                                   "01:02:03:04:05:06:07:08", " 0102030405060708\n"])
 async def test_user_flow_accepts_psk_as_ble_apps_show_it(hass, typed):
     with patch(CLIENT) as client, patch(SETUP, return_value=True):
         _client(client)
