@@ -72,6 +72,11 @@ Instead of the tool you can read the two values with a generic Bluetooth LE app 
    the one ending in **`…8ad`**. On iPhone/Mac the controller advertises only its name and the
    standard *Device Information* service – the two characteristics show up after connecting.
 
+   Apps decode a value as text or as bytes depending on a per-characteristic setting (in nRF
+   Connect the **“99” button → data parser**). Use **UTF-8** for the device ID and **Byte Array
+   (Hex)** for the PSK – shown as text, the PSK turns into a few odd characters that cannot be
+   entered in Home Assistant. Tested with nRF Connect on iOS.
+
 4. Enter both in Home Assistant. The PSK can be pasted as the app shows it – `0x`, dashes,
    colons and spaces are removed. If Home Assistant discovered the controller by itself, the
    device ID is already filled in and only the PSK is needed.
@@ -130,7 +135,9 @@ nRF Connect oder eine BLE-Scanner-App). Regler in den Kopplungsmodus bringen, in
 *Easy Connect e16* verbinden und zwei Characteristics je einmal **lesen**: Gerätekennung
 `673de933-963b-4298-bfc1-b0ccdada690a` (Text, Nullbytes am Ende ignorieren) und PSK
 `638ff62c-3823-4e0f-8179-1695c46ee8ad` (8 Bytes hex, z. B. `(0x) 01-23-45-67-89-AB-CD-EF` oder
-`0123 4567 89AB CDEF`; Achtung, eine Nachbar-Characteristic endet auf `…8af`). Den PSK
+`0123 4567 89AB CDEF`; Achtung, eine Nachbar-Characteristic endet auf `…8af`). Die Anzeige stellt man je Characteristic
+um (nRF Connect: Button „99“): Gerätekennung als UTF-8, PSK als Byte Array (Hex) – als Text wird der
+PSK zu Zeichensalat. Getestet mit nRF Connect unter iOS. Den PSK
 kann man so in Home Assistant einfügen, `0x`, Bindestriche und Doppelpunkte werden entfernt. Nichts
 schreiben, und danach das Log der App löschen, weil der Schlüssel darin stehen kann.
 
