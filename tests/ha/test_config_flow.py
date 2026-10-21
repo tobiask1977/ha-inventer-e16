@@ -41,6 +41,18 @@ async def test_user_flow(hass):
     assert result["data"] == DATA
 
 
+@pytest.mark.parametrize("typed", ["(0x) 01-02-03-04-05-06-07-08", "0x0102030405060708",
+                                   "01:02:03:04:05:06:07:08", " 0102030405060708
+"])
+async def test_user_flow_accepts_psk_as_ble_apps_show_it(hass, typed):
+    with patch(CLIENT) as client, patch(SETUP, return_value=True):
+        _client(client)
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {**DATA, "psk": typed})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["psk"] == PSK
+
+
 async def test_dhcp_discovers_new_controller(hass):
     with patch(CLIENT) as client, patch(SETUP, return_value=True):
         _client(client)

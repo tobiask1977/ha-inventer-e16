@@ -32,6 +32,8 @@ CHAR_TLS_IDENTITY = "98faf8a5-1ee6-4b0c-911e-dc37bff5206f"
 CHAR_TLS_KEY = "638ff62c-3823-4e0f-8179-1695c46ee8ad"
 CHAR_PIN = "4cad343a-209a-40b7-b911-4d9b3df569b2"
 CHAR_PIN_CONFIRMED = "d1ae6b70-ee12-4f6d-b166-d2063dcaffe1"
+# Some systems (seen on macOS) report the controller by name only, without service UUIDs
+NAME_PREFIX = "easy connect e16"
 
 
 async def scan(timeout):
@@ -39,8 +41,9 @@ async def scan(timeout):
     controllers = []
     for address, (device, adv) in found.items():
         uuids = {u.lower() for u in adv.service_uuids}
-        if uuids & {SERVICE_AUTH, SERVICE_PROTOCOL}:
-            controllers.append((adv.rssi, address, adv.local_name or device.name or ""))
+        name = adv.local_name or device.name or ""
+        if uuids & {SERVICE_AUTH, SERVICE_PROTOCOL} or name.lower().startswith(NAME_PREFIX):
+            controllers.append((adv.rssi, address, name))
     return sorted(controllers, reverse=True)
 
 

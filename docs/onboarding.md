@@ -54,6 +54,28 @@ app – but the controller hands it out over Bluetooth LE while it is in pairing
    e16*, enter IP address, device ID and PSK. The integration reads the zone once to check the
    key and names the device after the zone.
 
+## Without Python: a BLE app on your phone
+
+Instead of the tool you can read the two values with a generic Bluetooth LE app on your phone
+(e.g. nRF Connect or a BLE scanner app; Android and iOS). Nothing needs to be installed on a computer.
+
+1. Put the controller into **pairing mode** (LED blinks blue, see step 2 above).
+2. In the app, scan and connect to the controller (it appears as *Easy Connect e16*).
+3. Among its services, find these two characteristics and **read** each once:
+
+   | Value | Characteristic UUID | Shown as |
+   |---|---|---|
+   | Device ID | `673de933-963b-4298-bfc1-b0ccdada690a` | text (switch the app's display to text/UTF-8 if it shows bytes); ignore trailing zero bytes |
+   | PSK | `638ff62c-3823-4e0f-8179-1695c46ee8ad` | 8 bytes in hex, e.g. `(0x) 01-23-45-67-89-AB-CD-EF` |
+
+4. Enter both in Home Assistant. The PSK can be pasted as the app shows it – `0x`, dashes,
+   colons and spaces are removed. If Home Assistant discovered the controller by itself, the
+   device ID is already filled in and only the PSK is needed.
+
+Only **read** – do not write to any characteristic. Read before anything confirms the pairing PIN
+(otherwise the key comes back as zeros). Afterwards disconnect and clear the app's log, which may
+contain the key.
+
 ## Good to know
 
 - **`read` only reads.** It writes nothing to the controller, so your app keeps working as before.
@@ -71,7 +93,7 @@ app – but the controller hands it out over Bluetooth LE while it is in pairing
 
 | Symptom | Cause / fix |
 |---|---|
-| `scan` finds nothing | Not in pairing mode (LED must blink blue), too far away, or Bluetooth off |
+| `scan` finds nothing | Not in pairing mode (LED must blink blue), too far away, or Bluetooth off. If a BLE app shows the controller, pass its address to `read` |
 | "The controller returned an empty key" | The PIN was already confirmed in this pairing session (e.g. by the app). Start pairing mode again and run `read` right away |
 | Connection drops on Windows | Windows caches incomplete Bluetooth service tables; the tool forces a fresh read. Toggle Bluetooth off/on and retry, or use Linux |
 | Home Assistant: "Cannot reach the controller" | Wrong IP, controller not on Wi-Fi, or a firewall blocks TCP 47820 from Home Assistant to the controller |
@@ -98,6 +120,14 @@ ein Rechner mit Bluetooth LE und Python 3.10+; ein paar Meter Abstand zum Regler
    PSK aus; mit `--output e16.secret.json` stattdessen in eine Datei.
 5. In Home Assistant *Einstellungen → Geräte & Dienste → Integration hinzufügen → inVENTer Easy
    Connect e16*, IP-Adresse, Gerätekennung und PSK eintragen.
+
+**Ohne Python, mit dem Handy:** Statt des Tools geht auch eine allgemeine Bluetooth-LE-App (z. B.
+nRF Connect oder eine BLE-Scanner-App). Regler in den Kopplungsmodus bringen, in der App mit
+*Easy Connect e16* verbinden und zwei Characteristics je einmal **lesen**: Gerätekennung
+`673de933-963b-4298-bfc1-b0ccdada690a` (Text, Nullbytes am Ende ignorieren) und PSK
+`638ff62c-3823-4e0f-8179-1695c46ee8ad` (8 Bytes hex, z. B. `(0x) 01-23-45-67-89-AB-CD-EF`). Den PSK
+kann man so in Home Assistant einfügen, `0x`, Bindestriche und Doppelpunkte werden entfernt. Nichts
+schreiben, und danach das Log der App löschen, weil der Schlüssel darin stehen kann.
 
 **Wichtig:** `read` liest nur und ändert nichts am Regler – die App funktioniert weiter. Identität
 und PSK müssen **vor** einer PIN-Bestätigung gelesen werden, danach liefert der Regler Nullen. Den

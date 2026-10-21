@@ -81,7 +81,7 @@ there is no undo.
 
 - Easy Connect e16 with Wi-Fi module, connected to your network (set up with the official app)
 - Home Assistant 2026.9 or newer (Python ≥ 3.13 for TLS-PSK)
-- Once: a computer with Bluetooth LE and Python to read the device key
+- Once: a computer with Bluetooth LE and Python, or a phone with a BLE app, to read the device key
 
 ## Installation
 

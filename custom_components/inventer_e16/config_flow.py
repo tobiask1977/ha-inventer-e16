@@ -8,6 +8,8 @@ DHCP discovery: the controller's host name is "Easy Connect e16-<device id>" (se
 or "noName-<device id>" (reported in issue #3), so host and device id come for free and only the PSK must be entered. For a configured controller a
 new IP address is taken over automatically.
 """
+import re
+
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, OptionsFlowWithReload
@@ -24,7 +26,9 @@ PSK_SELECTOR = selector.TextSelector(selector.TextSelectorConfig(type=selector.T
 
 
 def _clean_psk(value):
-    return (value or "").strip().replace(" ", "").lower()
+    """Accept the key as BLE apps show it, e.g. "(0x) 01-02-..." or "0x01:02:..."."""
+    value = (value or "").strip().lower().removeprefix("(0x)").strip().removeprefix("0x")
+    return re.sub(r"[\s:-]", "", value)
 
 
 class E16ConfigFlow(ConfigFlow, domain=DOMAIN):
