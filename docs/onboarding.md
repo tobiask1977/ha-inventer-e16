@@ -66,7 +66,11 @@ Instead of the tool you can read the two values with a generic Bluetooth LE app 
    | Value | Characteristic UUID | Shown as |
    |---|---|---|
    | Device ID | `673de933-963b-4298-bfc1-b0ccdada690a` | text (switch the app's display to text/UTF-8 if it shows bytes); ignore trailing zero bytes |
-   | PSK | `638ff62c-3823-4e0f-8179-1695c46ee8ad` | 8 bytes in hex, e.g. `(0x) 01-23-45-67-89-AB-CD-EF` |
+   | PSK | `638ff62c-3823-4e0f-8179-1695c46ee8ad` | 8 bytes in hex, e.g. `(0x) 01-23-45-67-89-AB-CD-EF` or `0123 4567 89AB CDEF` |
+
+   Careful: a neighbouring characteristic differs only in the last character (`…8af`). The PSK is
+   the one ending in **`…8ad`**. On iPhone/Mac the controller advertises only its name and the
+   standard *Device Information* service – the two characteristics show up after connecting.
 
 4. Enter both in Home Assistant. The PSK can be pasted as the app shows it – `0x`, dashes,
    colons and spaces are removed. If Home Assistant discovered the controller by itself, the
@@ -125,7 +129,8 @@ ein Rechner mit Bluetooth LE und Python 3.10+; ein paar Meter Abstand zum Regler
 nRF Connect oder eine BLE-Scanner-App). Regler in den Kopplungsmodus bringen, in der App mit
 *Easy Connect e16* verbinden und zwei Characteristics je einmal **lesen**: Gerätekennung
 `673de933-963b-4298-bfc1-b0ccdada690a` (Text, Nullbytes am Ende ignorieren) und PSK
-`638ff62c-3823-4e0f-8179-1695c46ee8ad` (8 Bytes hex, z. B. `(0x) 01-23-45-67-89-AB-CD-EF`). Den PSK
+`638ff62c-3823-4e0f-8179-1695c46ee8ad` (8 Bytes hex, z. B. `(0x) 01-23-45-67-89-AB-CD-EF` oder
+`0123 4567 89AB CDEF`; Achtung, eine Nachbar-Characteristic endet auf `…8af`). Den PSK
 kann man so in Home Assistant einfügen, `0x`, Bindestriche und Doppelpunkte werden entfernt. Nichts
 schreiben, und danach das Log der App löschen, weil der Schlüssel darin stehen kann.
 
