@@ -105,8 +105,10 @@ ventilation.
 
 ### 2. Install the integration
 
-**HACS:** add this repository as a custom repository (category *Integration*), install
-*inVENTer Easy Connect e16*, restart Home Assistant.
+**HACS:** search for *inVENTer Easy Connect e16* in HACS, download it and restart Home Assistant.
+Or open it directly:
+
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tobiask1977&repository=ha-inventer-e16&category=integration)
 
 **Manual:** copy `custom_components/inventer_e16` to `/config/custom_components/` and restart.
 
