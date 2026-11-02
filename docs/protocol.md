@@ -191,7 +191,14 @@ temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6
 | 33 | f32 | Humidity |
 | 37 | u32 | Total runtime, seconds (inferred from a controller replaced half a day earlier: 43 200) |
 | 41 | type-dependent | fan units: polarity u8; T/RH and battery sensors: battery level f32 (percent inferred, values 62–64 seen); alarm interface: alarm u8 |
-| 54 | u8 / u8 / i8 | Repeater flag, repeater address, repeated signal |
+| 54 | u8 / u8 / i8 | Repeater flag, repeater address, repeated signal (127 = no reading) |
+| 57 | u8 | Unknown, `0xFF` seen on every device |
+
+Row length: 58 bytes for every device type (verified: controller, two fan units, indoor and outdoor
+sensor; read in November 2026, after a firmware update). An earlier fan unit capture (`tests/test_client.py`,
+made on the firmware listed at the top) was 60 bytes long: the type-dependent block had two more `0xFF` bytes, and the last
+four bytes were the same. Read the repeater fields from the end of the row (length − 4), not from
+a fixed offset. The integration does not parse them.
 
 **Version numbers** are shown as 8 digits split 2.3.3: `5030010` → 5.30.10.
 
