@@ -191,7 +191,7 @@ temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6
 | 33 | f32 | Humidity |
 | 37 | u32 | Total runtime, seconds (inferred from a controller replaced half a day earlier: 43 200) |
 | 41 | type-dependent | fan units: polarity u8; T/RH and battery sensors: battery level f32 (percent inferred, values 62–64 seen); alarm interface: alarm u8 |
-| 54 | u8 / u8 / i8 | Repeater flag, repeater address, repeated signal (127 = no reading) |
+| 54 | u8 / u8 / i8 | Repeater flag, repeater address, repeated signal (127 seen when no repeater is in use) |
 | 57 | u8 | Unknown, `0xFF` seen on every device |
 
 Row length: 58 bytes for every device type (verified: controller, two fan units, indoor and outdoor
