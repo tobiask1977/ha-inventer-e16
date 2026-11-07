@@ -38,8 +38,9 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
    (`heat_recovery`), not display text.
 8. **Keep unique IDs stable.** `<device_id>_<key>` (controller and zone 1),
    `<device_id>_zone<n>_<key>` (zones 2–4) and `<device_id>_<address>_<key>` (radio devices) –
-   changing a key orphans the user's entities. Device identifiers: `<device_id>`,
-   `<device_id>_zone<n>`, `<device_id>_<address>`.
+   changing a key orphans the user's entities. Device identifiers: `<device_id>` (controller,
+   also carries the zone with a single zone), `<device_id>_zone<n>` (every zone, zone 1
+   included, with several zones), `<device_id>_<address>`.
 
 ## Before a release
 

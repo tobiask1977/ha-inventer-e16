@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0b2 – 2026-11-07 (pre-release)
+
+Second pre-release for controllers with several zones, after the first test report in #22.
+
+- With several zones, zone 1 becomes a device of its own like the other zones. Before, it sat on
+  the controller device, which carried zone 1's name and twice as many entities as the other
+  zones. The controller is now named *inVENTer Easy Connect e16* and keeps filter and service,
+  firmware, Wi-Fi, alarms and the outdoor values. Zone 1's entities keep their entity IDs, and
+  the zone 1 device takes over the controller's area. Single-zone installations don't change.
+
 ## 0.4.0b1 – 2026-11-07 (pre-release)
 
 Pre-release for testing on controllers with several zones; see #22.
