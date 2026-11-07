@@ -15,8 +15,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .client import (CMD_CANCEL, CMD_GLOBAL_BOOST, CMD_GLOBAL_PAUSE, CMD_ZONE_SPEED_MODE,
-                     FAN_HEAT_RECOVERY, FAN_OFF, FAN_VENTILATION, READ_MODE_TO_FAN, ZONE_GLOBAL,
-                     E16AuthError, E16Client)
+                     FAN_HEAT_RECOVERY, FAN_OFF, FAN_VENTILATION, READ_MODE_TO_FAN,
+                     ZONE_FLAG_GLOBAL_COMMAND, ZONE_GLOBAL, E16AuthError, E16Client)
 from .const import (CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
                     DEFAULT_FIRMWARE_CATALOG, DEFAULT_SCAN_INTERVAL)
 
@@ -88,7 +88,11 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
             await self.async_override(CMD_GLOBAL_PAUSE, 0, FAN_OFF, ZONE_GLOBAL, duration)
 
     async def async_resume(self, zone_id):
-        await self.async_override(CMD_CANCEL, 0, FAN_OFF, zone_id if self.multi_zone else ZONE_GLOBAL)
+        # A pause or boost for all zones (e.g. from the app) ends for all zones, like in the app
+        zone = ZONE_GLOBAL
+        if self.multi_zone and not self.data[zone_id]["flags"] & ZONE_FLAG_GLOBAL_COMMAND:
+            zone = zone_id
+        await self.async_override(CMD_CANCEL, 0, FAN_OFF, zone)
 
     async def async_boost(self, zone_id, duration):
         if self.multi_zone:

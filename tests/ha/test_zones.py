@@ -115,6 +115,55 @@ async def test_several_zones_become_devices_with_their_own_commands(hass, monkey
     assert controller.zones[3].profile == 1 and controller.zones[1].profile == 0
 
 
+def _last_override(hass, unique_id):
+    return hass.states.get(_entity(hass, "sensor", unique_id)).attributes["active"]
+
+
+async def test_zone_cancel_ends_the_pause_without_end(hass, monkeypatch):
+    # A cancel for one zone keeps that zone's record (#22): the pause must not stay "active"
+    controller = sim.FakeController(zones=2)
+    await _setup(hass, monkeypatch, controller)
+    fan2 = _entity(hass, "fan", "zone2_fan")
+    await _call(hass, "fan", "turn_off", fan2)
+    assert _last_override(hass, "zone2_last_override") is True
+    await _call(hass, "fan", "turn_on", fan2)
+    assert hass.states.get(_entity(hass, "sensor", "zone2_last_override")).state == "zone_speed_mode"
+    assert _last_override(hass, "zone2_last_override") is False
+
+
+async def test_resume_during_a_pause_for_all_zones_ends_it_everywhere(hass, monkeypatch):
+    controller = sim.FakeController(zones=3)
+    entry = await _setup(hass, monkeypatch, controller)
+    controller.command(bytes.fromhex("020003ffffffffff"))  # global pause from the app
+    await entry.runtime_data.zone.async_refresh()
+    await _call(hass, "button", "press", _entity(hass, "button", "zone2_resume"))
+    assert _last_command(controller) == (client.CMD_CANCEL, 0, client.FAN_OFF, 255, 0)
+    assert all(controller.zones[n].speed == 1 for n in (1, 2, 3))
+    # Without a global command the cancel stays in the zone
+    await _call(hass, "fan", "turn_off", _entity(hass, "fan", "zone3_fan"))
+    await _call(hass, "button", "press", _entity(hass, "button", "zone3_resume"))
+    assert _last_command(controller) == (client.CMD_CANCEL, 0, client.FAN_OFF, 3, 0)
+
+
+async def test_moved_device_reloads_and_stale_zone_can_be_deleted(hass, monkeypatch):
+    from custom_components.inventer_e16 import async_remove_config_entry_device
+    controller = sim.FakeController(zones=3)
+    entry = await _setup(hass, monkeypatch, controller)
+    registry = dr.async_get(hass)
+    zone2 = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_zone2"), entry.entry_id)
+    zone3 = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_zone3"), entry.entry_id)
+    # The only fan of zone 3 (address 4) moves to zone 2
+    controller.devices[4] = sim.device_row(4, 2, 2, "Fan 4", 5030009, zone=2)
+    await entry.runtime_data.info.async_refresh()
+    await hass.async_block_till_done()
+    assert entry.runtime_data.zone.zone_ids == (1, 2)
+    fan4 = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_4"), entry.entry_id)
+    assert fan4.via_device_id == zone2.id
+    assert await async_remove_config_entry_device(hass, entry, zone3) is True
+    assert await async_remove_config_entry_device(hass, entry, zone2) is False
+    assert await async_remove_config_entry_device(hass, entry, fan4) is False
+
+
 async def test_new_zone_reloads_the_entry(hass, monkeypatch):
     controller = sim.FakeController(zones=2)
     entry = await _setup(hass, monkeypatch, controller)

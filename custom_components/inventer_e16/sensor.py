@@ -113,15 +113,19 @@ class E16ZoneSensor(E16Entity, SensorEntity):
             return None
         return {"speed": value["speed"], "fan_mode": value["mode"], "zone": value["zone"],
                 "duration_s": None if value["duration"] == FOREVER else value["duration"],
-                "active": override_active(value, self.zone["timer"])}
+                "active": override_active(value, self.zone)}
 
 
-def override_active(record, timer):
+def override_active(record, zone):
     """Whether the last command still applies. An expired command keeps its record; only the
-    remaining timer drops to 0 (issue #2). Cancel and "fans off ended" never apply."""
+    remaining timer drops to 0 (issue #2). A cancel for one zone keeps the zone's record too (#22),
+    so a command without end applies only while the zone runs at its speed. Cancel and "fans off
+    ended" never apply."""
     if record["command"] in NOT_ACTIVE:
         return False
-    return record["duration"] == FOREVER or timer > 0
+    if record["duration"] == FOREVER:
+        return zone["speed"] == record["speed"]
+    return zone["timer"] > 0
 
 
 class E16DueSensor(E16Entity, SensorEntity):

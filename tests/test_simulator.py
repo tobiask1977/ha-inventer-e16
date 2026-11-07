@@ -245,6 +245,17 @@ def test_status_of_another_zone_after_a_command_is_skipped(monkeypatch):
     assert zones[4]["speed"] == 2 and zones[1]["speed"] == 1
 
 
+def test_statuses_of_every_other_zone_are_skipped(monkeypatch):
+    controller = sim.FakeController(zones=4)
+    e16 = wired(monkeypatch, controller)
+    others = [sim.reply_packet(sim.ZONE_VIEW, controller.zones[n].row()) for n in (2, 3, 4, 2, 3)]
+    controller.send_before_reply(*others)
+    assert e16.get_zones((1,))[1]["zone_id"] == 1
+    controller.send_before_reply(*others, others[0])
+    with pytest.raises(ValueError):
+        e16.get_zones((1,))
+
+
 def test_zone_settings_of_a_further_zone(monkeypatch):
     controller = sim.FakeController(zones=2)
     zones = wired(monkeypatch, controller).set_zone_field(

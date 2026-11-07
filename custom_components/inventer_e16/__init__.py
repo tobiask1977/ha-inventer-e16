@@ -24,6 +24,12 @@ async def async_migrate_entry(hass, entry):
     return True
 
 
+def device_zones(devices):
+    """Radio devices and their zones. A change needs other devices or entities: a new or removed
+    device, a zone coming into use or going out of use, a device moved to another zone."""
+    return {(device["address"], device["zone"]) for device in devices if device["type"] != 1}
+
+
 async def async_setup_entry(hass, entry):
     data = coordinator.create(hass, entry)
     # The radio devices tell which zones are in use, so read them before the zones
@@ -44,18 +50,18 @@ async def async_setup_entry(hass, entry):
         data.zone_device_ids[zone_id] = registry.async_get_or_create(
             config_entry_id=entry.entry_id, identifiers={(DOMAIN, f"{main}_zone{zone_id}")},
             name=f"inVENTer {name}", manufacturer="inVENTer", model="Ventilation zone",
-            via_device=(DOMAIN, main),
+            via_device_id=data.main_device_id,
         ).id
     entry.runtime_data = data
+    layout = device_zones(data.info.data["devices"])
 
     @callback
-    def reload_on_new_zone():
-        # A radio device was assigned to a zone that has no entities yet
-        if data.info.data and set(zones_in_use(data.info.data["devices"])) - set(data.zone.zone_ids):
-            coordinator.LOGGER.info("A zone came into use, reloading %s", entry.title)
+    def reload_on_new_layout():
+        if data.info.data and device_zones(data.info.data["devices"]) != layout:
+            coordinator.LOGGER.info("Radio devices or zones changed, reloading %s", entry.title)
             hass.config_entries.async_schedule_reload(entry.entry_id)
 
-    entry.async_on_unload(data.info.async_add_listener(reload_on_new_zone))
+    entry.async_on_unload(data.info.async_add_listener(reload_on_new_layout))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # No update listener: it would reload on every entry change, even when Home Assistant only
     # records a DHCP discovery key. Options reload via OptionsFlowWithReload, flows via their abort.
@@ -64,3 +70,11 @@ async def async_setup_entry(hass, entry):
 
 async def async_unload_entry(hass, entry):
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_config_entry_device(hass, entry, device):
+    """Zones and radio devices the controller no longer reports can be deleted in the UI."""
+    main, data = entry.data[CONF_DEVICE_ID], entry.runtime_data
+    current = {main, *(f"{main}_zone{zone_id}" for zone_id in data.zone.zone_ids),
+               *(f"{main}_{d['address']}" for d in data.info.data["devices"] if d["type"] != 1)}
+    return not any(domain == DOMAIN and key in current for domain, key in device.identifiers)

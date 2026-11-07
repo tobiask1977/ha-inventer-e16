@@ -7,7 +7,10 @@
   before, switching the fan off or on and the buttons *Boost 15 min*, *Pause 1 h* and *Resume
   profile* acted on all zones. Zone 1 stays on the controller device and keeps its entities, and
   single-zone installations send the same commands as before. Each fan and sensor hangs below its
-  zone. A zone that comes into use later reloads the integration.
+  zone.
+- The integration reloads by itself when a radio device is added, removed or moved to another
+  zone (before, new devices needed a restart). Zones and devices the controller no longer reports
+  can be deleted in the UI.
 - Diagnostics contain the status of every zone in use (`zones` instead of `zone`).
 - Device type 27 is shown as iV-Twin+ fan unit.
 - Documentation: README and onboarding guide rewritten in English only and shortened.

@@ -35,16 +35,23 @@ def _record(command, duration):
     return {"command": command, "speed": 2, "mode": 1, "zone": 1, "duration": duration}
 
 
-@pytest.mark.parametrize(("record", "timer", "active"), [
-    (_record(5, 900), 600, True),
+def _pause(zone):
+    return {"command": 5, "speed": 0, "mode": 3, "zone": zone, "duration": FOREVER}
+
+
+@pytest.mark.parametrize(("record", "timer", "speed", "active"), [
+    (_record(5, 900), 600, 2, True),
     # Expired: the record stays, only the timer is 0 (issue #2)
-    (_record(5, 900), 0, False),
-    (_record(2, FOREVER), 0, True),
-    (_record(7, 0), 0, False),
-    (_record(9, 0), 0, False),
+    (_record(5, 900), 0, 1, False),
+    ({**_record(2, FOREVER), "speed": 0}, 0, 0, True),
+    # Zone pause without end, and after a cancel for that zone only: the record stays (#22)
+    (_pause(2), 0, 0, True),
+    (_pause(2), 0, 1, False),
+    (_record(7, 0), 0, 1, False),
+    (_record(9, 0), 0, 1, False),
 ])
-def test_override_active(record, timer, active):
-    assert override_active(record, timer) is active
+def test_override_active(record, timer, speed, active):
+    assert override_active(record, {"timer": timer, "speed": speed}) is active
 
 
 def test_time_program_profiles_are_the_ones_with_a_table():

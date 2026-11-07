@@ -89,12 +89,16 @@ permanent changes, select another profile or edit its time program.
 Every zone with fans or sensors assigned becomes its own device below the controller; zone 1
 stays on the controller device, so a single-zone installation looks as before. Each zone has its
 own fan, buttons, profile, command duration and sensors, and its commands go to that zone only.
-Outdoor values show on zone 1, indoor values on zones with an indoor sensor. When a device is
-assigned to a zone that wasn't in use, the integration reloads by itself.
+Outdoor values show on zone 1, indoor values on zones with an indoor sensor.
 
-With a single zone, switching the fan off or on and the buttons send the app's commands for all
-zones, as before. Time programs belong to a profile, not to a zone: editing one changes every
-zone that uses that profile.
+- With a single zone, switching the fan off or on and the buttons send the app's commands for
+  all zones, as before.
+- While a pause or boost for all zones is running (for example started in the app), switching a
+  zone on or *Resume profile* ends it in all zones.
+- Time programs belong to a profile, not to a zone: editing one changes every zone that uses
+  that profile.
+- When a radio device is added, removed or moved to another zone, the integration reloads by
+  itself. Zones and devices the controller no longer reports can be deleted on their device page.
 
 ### Actions
 

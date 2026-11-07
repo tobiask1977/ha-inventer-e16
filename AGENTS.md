@@ -36,8 +36,10 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
 7. **Translations.** New entities get a `translation_key`; add name and states to
    `strings.json`, `translations/en.json` and `translations/de.json`. State values are keys
    (`heat_recovery`), not display text.
-8. **Keep unique IDs stable.** `<device_id>_<key>` and `<device_id>_<address>_<key>` – changing a
-   key orphans the user's entities.
+8. **Keep unique IDs stable.** `<device_id>_<key>` (controller and zone 1),
+   `<device_id>_zone<n>_<key>` (zones 2–4) and `<device_id>_<address>_<key>` (radio devices) –
+   changing a key orphans the user's entities. Device identifiers: `<device_id>`,
+   `<device_id>_zone<n>`, `<device_id>_<address>`.
 
 ## Before a release
 

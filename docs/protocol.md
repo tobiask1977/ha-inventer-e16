@@ -156,8 +156,8 @@ Note: Cancel also makes an automatic profile re-evaluate immediately, so the sta
 
 A controller has up to four zones (ids 1–4, ZoneViewRow index = id − 1). All four indexes answer
 even when only one zone is set up: on a single-zone controller, zones 2–4 come back with an empty
-name, profile 0, speed 0 and only the external-sensor flag (verified). Index 4 and higher get no
-reply. Which zones are in use shows in the device rows: every radio device carries its zone id
+name, profile 0, speed 0, only the external-sensor flag, and the outdoor values of the shared
+outdoor sensor (verified). Index 4 and higher get no reply. Which zones are in use shows in the device rows: every radio device carries its zone id
 (the outdoor sensor 0, verified). The integration treats zone 1 and every zone with a radio device
 as in use.
 
@@ -177,7 +177,9 @@ Reported by a user from a controller with four zones (controller 5.30.11, fans 5
 
 Not verified: a zone pause without end (zone speed/mode with duration `0xFFFFFFFF`), which the
 integration sends when a zone's fan is switched off on a controller with several zones, and
-writing ZoneRowField for zones other than zone 1.
+writing ZoneRowField for zones other than zone 1. Whether a cancel for one zone ends a global
+pause or boost in that zone is not known either; while flag bit 4 (global command) is set, the
+integration therefore sends the cancel for all zones.
 
 ### 136 GlobalDataField
 

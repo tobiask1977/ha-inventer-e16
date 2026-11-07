@@ -82,6 +82,8 @@ BATTERY_DEVICE_TYPES = {4, 5, 12}
 MAX_DEVICES = 32
 # Zone ids 1-4 (ZoneViewRow index = id - 1). Every controller answers all four, used or not.
 MAX_ZONES = 4
+# ZoneViewRowV5.flags: a pause or boost for all zones is running
+ZONE_FLAG_GLOBAL_COMMAND = 16
 # Hardware types as used by the vendor firmware catalog; device rows use 1-3,
 # the ESP32 Wi-Fi module comes from packet 54
 HW_MZCU, HW_FCU, HW_SENSORS, HW_ESP32 = 1, 2, 3, 6
@@ -240,8 +242,8 @@ def parse_device(data):
 
 
 def zones_in_use(devices):
-    """Zone 1 and every other zone with a radio device assigned. The zone status alone doesn't
-    tell: an unused zone answers like a used one, with an empty name and speed 0."""
+    """Zone 1 and every other zone with a radio device assigned. Every zone answers, used or not
+    (an unused one with an empty name and speed 0); the device rows carry the zone."""
     return tuple(sorted({1} | {device["zone"] for device in devices
                                if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}))
 
@@ -290,11 +292,11 @@ class E16Client:
     @classmethod
     def _zone(cls, connection, zone_id):
         """Status of one zone. After a command the controller also sends a zone status on its own,
-        possibly of another zone, so a status for another zone is skipped."""
+        possibly of another zone or of each zone, so statuses of other zones are skipped."""
         if not 1 <= zone_id <= MAX_ZONES:
             raise ValueError(f"No zone {zone_id}")
         connection.sendall(packet(T_ZONE_VIEW, bytes([zone_id - 1])))
-        for _ in range(3):
+        for _ in range(MAX_ZONES + 2):
             zone = parse_zone(cls._reply(connection, T_ZONE_VIEW))
             if zone["zone_id"] == zone_id:
                 return zone
