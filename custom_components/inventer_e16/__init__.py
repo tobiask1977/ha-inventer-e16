@@ -8,6 +8,7 @@ from homeassistant.helpers import device_registry as dr
 from . import coordinator
 from .client import zones_in_use
 from .const import CONF_DEVICE_ID, CONF_FIRMWARE_CATALOG, DOMAIN
+from .entity import zone_device_key
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.FAN, Platform.BUTTON,
              Platform.NUMBER, Platform.SELECT, Platform.UPDATE]
@@ -37,21 +38,32 @@ async def async_setup_entry(hass, entry):
     data.zone.zone_ids = zones_in_use(data.info.data["devices"])
     await data.zone.async_config_entry_first_refresh()
     # Create the devices first: entities, fans and sensors reference them via via_device_id
-    main = entry.data[CONF_DEVICE_ID]
+    main, multi_zone = entry.data[CONF_DEVICE_ID], data.zone.multi_zone
     registry = dr.async_get(hass)
+    # The entry is named after zone 1. With several zones, zone 1 is a device of its own, so the
+    # controller goes by its model name.
     data.main_device_id = registry.async_get_or_create(
         config_entry_id=entry.entry_id, identifiers={(DOMAIN, main)},
-        name=entry.title, manufacturer="inVENTer", model="Easy Connect e16",
+        name="inVENTer Easy Connect e16" if multi_zone else entry.title,
+        manufacturer="inVENTer", model="Easy Connect e16",
     ).id
-    # Zone 1 stays on the main device, so single-zone installations keep their entities
+    # One zone: the controller carries it, so single-zone installations keep their devices
     data.zone_device_ids = {1: data.main_device_id}
-    for zone_id in data.zone.zone_ids[1:]:
-        name = data.zone.data[zone_id]["name"] or f"Zone {zone_id}"
-        data.zone_device_ids[zone_id] = registry.async_get_or_create(
-            config_entry_id=entry.entry_id, identifiers={(DOMAIN, f"{main}_zone{zone_id}")},
-            name=f"inVENTer {name}", manufacturer="inVENTer", model="Ventilation zone",
-            via_device_id=data.main_device_id,
-        ).id
+    if multi_zone:
+        known = {key for device in dr.async_entries_for_config_entry(registry, entry.entry_id)
+                 for _, key in device.identifiers}
+        for zone_id in data.zone.zone_ids:
+            key, name = zone_device_key(main, zone_id, True), data.zone.data[zone_id]["name"]
+            device = registry.async_get_or_create(
+                config_entry_id=entry.entry_id, identifiers={(DOMAIN, key)},
+                name=f"inVENTer {name or f'Zone {zone_id}'}", manufacturer="inVENTer",
+                model="Ventilation zone", via_device_id=data.main_device_id,
+            )
+            if zone_id == 1 and key not in known:
+                # Zone 1 sat on the controller until now: keep its entities in the same area
+                registry.async_update_device(
+                    device.id, area_id=registry.async_get(data.main_device_id).area_id)
+            data.zone_device_ids[zone_id] = device.id
     entry.runtime_data = data
     layout = device_zones(data.info.data["devices"])
 
@@ -75,6 +87,7 @@ async def async_unload_entry(hass, entry):
 async def async_remove_config_entry_device(hass, entry, device):
     """Zones and radio devices the controller no longer reports can be deleted in the UI."""
     main, data = entry.data[CONF_DEVICE_ID], entry.runtime_data
-    current = {main, *(f"{main}_zone{zone_id}" for zone_id in data.zone.zone_ids),
+    zones = (zone_device_key(main, zone_id, data.zone.multi_zone) for zone_id in data.zone.zone_ids)
+    current = {main, *zones,
                *(f"{main}_{d['address']}" for d in data.info.data["devices"] if d["type"] != 1)}
     return not any(domain == DOMAIN and key in current for domain, key in device.identifiers)

@@ -86,13 +86,17 @@ permanent changes, select another profile or edit its time program.
 
 ### Several zones
 
-Every zone with fans or sensors assigned becomes its own device below the controller; zone 1
-stays on the controller device, so a single-zone installation looks as before. Each zone has its
-own fan, buttons, profile, command duration and sensors, and its commands go to that zone only.
-Outdoor values show on zone 1, indoor values on zones with an indoor sensor.
+With several zones, every zone with fans or sensors assigned, zone 1 included, becomes its own
+device below the controller. Each zone has its own fan, buttons, profile, command duration and
+sensors, and its commands go to that zone only. The fans of a zone always run together, so there
+are no controls for single fans. The controller device, then named *inVENTer Easy Connect e16*,
+keeps what applies to all zones: filter and service, firmware, Wi-Fi, alarms and the outdoor
+values. Indoor values show on zones with an indoor sensor.
 
-- With a single zone, switching the fan off or on and the buttons send the app's commands for
-  all zones, as before.
+- With a single zone, the controller device carries the zone, and switching the fan off or on
+  and the buttons send the app's commands for all zones, as before.
+- When a second zone comes into use, zone 1's entities move to the new zone 1 device. They keep
+  their entity IDs, and the zone 1 device takes over the controller's area.
 - While a pause or boost for all zones is running (for example started in the app), switching a
   zone on or *Resume profile* ends it in all zones.
 - Time programs belong to a profile, not to a zone: editing one changes every zone that uses
@@ -162,9 +166,9 @@ until you switch it off.
 
 ## Limitations
 
-- Support for several zones is new. It is based on tests from a four-zone installation, but has
-  not run on one yet; feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22)
-  is welcome. Devices cannot be moved to another zone.
+- Support for several zones is new and has been confirmed on one three-zone installation so far;
+  feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22) is welcome. Devices
+  cannot be moved to another zone.
 - Custom profiles cannot be created or renamed (their time programs can be edited).
 - Firmware cannot be installed from Home Assistant.
 - Developed on one installation with two iV14 Zero fans and an indoor and outdoor sensor. Other
