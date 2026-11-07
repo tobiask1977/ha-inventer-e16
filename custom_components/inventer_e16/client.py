@@ -80,6 +80,10 @@ SYS_BATTERY_CRITICAL, SYS_ALARM, SYS_FILTER_TIMEOUT, SYS_SERVICE_TIMEOUT = 16, 3
 BATTERY_DEVICE_TYPES = {4, 5, 12}
 # A controller has a handful of radio devices; cap what a (faulty) reply can make us query
 MAX_DEVICES = 32
+# Zone ids 1-4 (ZoneViewRow index = id - 1). Every controller answers all four, used or not.
+MAX_ZONES = 4
+# ZoneViewRowV5.flags: a pause or boost for all zones is running
+ZONE_FLAG_GLOBAL_COMMAND = 16
 # Hardware types as used by the vendor firmware catalog; device rows use 1-3,
 # the ESP32 Wi-Fi module comes from packet 54
 HW_MZCU, HW_FCU, HW_SENSORS, HW_ESP32 = 1, 2, 3, 6
@@ -237,6 +241,13 @@ def parse_device(data):
     }
 
 
+def zones_in_use(devices):
+    """Zone 1 and every other zone with a radio device assigned. Every zone answers, used or not
+    (an unused one with an empty name and speed 0); the device rows carry the zone."""
+    return tuple(sorted({1} | {device["zone"] for device in devices
+                               if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}))
+
+
 @contextmanager
 def _malformed_as_value_error():
     """Truncated or garbled replies must surface as ValueError, never as struct/index errors."""
@@ -273,9 +284,26 @@ class E16Client:
             with connection:
                 yield connection
 
-    @staticmethod
-    def _request(connection, ptype, payload=b"", destination=MASTER):
+    @classmethod
+    def _request(cls, connection, ptype, payload=b"", destination=MASTER):
         connection.sendall(packet(ptype, payload, destination=destination))
+        return cls._reply(connection, ptype)
+
+    @classmethod
+    def _zone(cls, connection, zone_id):
+        """Status of one zone. After a command the controller also sends a zone status on its own,
+        possibly of another zone or of each zone, so statuses of other zones are skipped."""
+        if not 1 <= zone_id <= MAX_ZONES:
+            raise ValueError(f"No zone {zone_id}")
+        connection.sendall(packet(T_ZONE_VIEW, bytes([zone_id - 1])))
+        for _ in range(MAX_ZONES + 2):
+            zone = parse_zone(cls._reply(connection, T_ZONE_VIEW))
+            if zone["zone_id"] == zone_id:
+                return zone
+        raise ValueError(f"No status for zone {zone_id}")
+
+    @staticmethod
+    def _reply(connection, ptype):
         # Skip a possible reply to a previous command
         for _ in range(4):
             answer = read_packet(connection)
@@ -299,16 +327,22 @@ class E16Client:
             raise ValueError(f"Unexpected reply for field {field_id}")
         return answer[8:4 + length]
 
-    def _update(self, ptype, payload):
-        """Send like the app does: no reply expected, state is read again afterwards."""
+    def _update(self, ptype, payload, zone_ids):
+        """Send like the app does: no reply expected. Then read the given zones again, as
+        {zone_id: zone}."""
         with self._connect() as connection, _malformed_as_value_error():
             connection.sendall(packet(ptype, payload, operation=UPDATE))
             time.sleep(0.5)
-            return parse_zone(self._request(connection, T_ZONE_VIEW, b"\x00"))
+            return {zone_id: self._zone(connection, zone_id) for zone_id in zone_ids}
 
     def get_zone(self, index=0):
         with self._connect() as connection, _malformed_as_value_error():
             return parse_zone(self._request(connection, T_ZONE_VIEW, bytes([index])))
+
+    def get_zones(self, zone_ids=(1,)):
+        """Status of several zones over one connection, as {zone_id: zone}."""
+        with self._connect() as connection, _malformed_as_value_error():
+            return {zone_id: self._zone(connection, zone_id) for zone_id in zone_ids}
 
     def get_info(self):
         """Maintenance, firmware, Wi-Fi and radio devices - rarely changes."""
@@ -360,11 +394,15 @@ class E16Client:
             raise ValueError(f"Time program entry {entry} of profile {profile} was not stored")
         return stored
 
-    def user_override(self, command, speed=0, mode=FAN_OFF, zone=ZONE_GLOBAL, duration=0):
-        return self._update(T_USER_OVERRIDE, override_payload(command, speed, mode, zone, duration))
+    # The writes return the zones in zone_ids as read afterwards, as {zone_id: zone}
+    def user_override(self, command, speed=0, mode=FAN_OFF, zone=ZONE_GLOBAL, duration=0,
+                      zone_ids=(1,)):
+        return self._update(T_USER_OVERRIDE, override_payload(command, speed, mode, zone, duration),
+                            zone_ids)
 
-    def set_global_field(self, field_id, raw):
-        return self._update(T_GLOBAL_FIELD, field_payload(field_id, raw))
+    def set_global_field(self, field_id, raw, zone_ids=(1,)):
+        return self._update(T_GLOBAL_FIELD, field_payload(field_id, raw), zone_ids)
 
-    def set_zone_field(self, zone_id, field, raw):
-        return self._update(T_ZONE_FIELD, field_payload(zone_id * 65536 + field, raw))
+    def set_zone_field(self, zone_id, field, raw, zone_ids=None):
+        return self._update(T_ZONE_FIELD, field_payload(zone_id * 65536 + field, raw),
+                            zone_ids or (zone_id,))

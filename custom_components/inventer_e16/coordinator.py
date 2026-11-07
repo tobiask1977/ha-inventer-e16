@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
-"""Zone status every 30 s (option), maintenance/firmware every 10 min, vendor catalog once a day."""
-from dataclasses import dataclass
+"""Zones in use every 30 s (option), maintenance/firmware/radio devices every 10 min, vendor catalog
+once a day."""
+from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
 
@@ -13,12 +14,16 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .client import E16AuthError, E16Client
+from .client import (CMD_CANCEL, CMD_GLOBAL_BOOST, CMD_GLOBAL_PAUSE, CMD_ZONE_SPEED_MODE,
+                     FAN_HEAT_RECOVERY, FAN_OFF, FAN_VENTILATION, READ_MODE_TO_FAN,
+                     ZONE_FLAG_GLOBAL_COMMAND, ZONE_GLOBAL, E16AuthError, E16Client)
 from .const import (CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
                     DEFAULT_FIRMWARE_CATALOG, DEFAULT_SCAN_INTERVAL)
 
 LOGGER = logging.getLogger(__package__)
 CATALOG_INTERVAL = timedelta(hours=24)
+# Duration of speed/mode commands until the user sets one; the app offers 15 min to 8 h
+DEFAULT_OVERRIDE_MINUTES = 60
 
 
 @dataclass
@@ -26,9 +31,13 @@ class E16Data:
     zone: "E16ZoneCoordinator"
     info: "E16InfoCoordinator"
     main_device_id: str | None = None
+    # Device registry id per zone; zone 1 is the main device
+    zone_device_ids: dict = field(default_factory=dict)
 
 
 class E16ZoneCoordinator(DataUpdateCoordinator):
+    """Status of the zones in use, as {zone_id: zone}."""
+
     def __init__(self, hass, entry, client):
         super().__init__(
             hass, LOGGER, name=f"{entry.title} zone", config_entry=entry,
@@ -37,30 +46,64 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
             always_update=False,
         )
         self.client = client
-        # Duration for speed/mode commands; the app offers 15 min to 8 h
-        self.override_minutes = 60
+        # Set before the first refresh from the radio devices (client.zones_in_use)
+        self.zone_ids = (1,)
+        # Duration of speed/mode commands per zone, in minutes
+        self.override_minutes = {}
+
+    @property
+    def multi_zone(self):
+        return len(self.zone_ids) > 1
+
+    def minutes(self, zone_id):
+        return self.override_minutes.get(zone_id, DEFAULT_OVERRIDE_MINUTES)
 
     async def _async_update_data(self):
         try:
-            return await self.hass.async_add_executor_job(self.client.get_zone)
+            return await self.hass.async_add_executor_job(self.client.get_zones, self.zone_ids)
         except E16AuthError as error:
             raise ConfigEntryAuthFailed("The controller rejected the PSK") from error
         except (OSError, ValueError) as error:
-            raise UpdateFailed(f"Reading the e16 zone failed: {error}") from error
+            raise UpdateFailed(f"Reading the e16 zones failed: {error}") from error
 
     async def _async_command(self, method, *args):
         LOGGER.debug("e16 command %s%s", method.__name__, args)
         try:
-            zone = await self.hass.async_add_executor_job(method, *args)
+            zones = await self.hass.async_add_executor_job(method, *args)
         except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 command failed: {error}") from error
-        self.async_set_updated_data(zone)
+        self.async_set_updated_data(zones)
 
-    async def async_override(self, command, speed=0, mode=3, zone=255, duration=0):
-        await self._async_command(self.client.user_override, command, speed, mode, zone, duration)
+    async def async_override(self, command, speed=0, mode=FAN_OFF, zone=ZONE_GLOBAL, duration=0):
+        await self._async_command(
+            self.client.user_override, command, speed, mode, zone, duration, self.zone_ids)
 
-    async def async_set_zone_field(self, field, raw):
-        await self._async_command(self.client.set_zone_field, self.data["zone_id"], field, raw)
+    # Power button and quick commands. With one zone they are the app's commands for all zones.
+    # With several zones they go to one zone only: a command for all zones ends or overrides the
+    # other zones as well (verified on a controller with four zones, issue #22).
+    async def async_pause(self, zone_id, duration):
+        if self.multi_zone:
+            await self.async_override(CMD_ZONE_SPEED_MODE, 0, FAN_OFF, zone_id, duration)
+        else:
+            await self.async_override(CMD_GLOBAL_PAUSE, 0, FAN_OFF, ZONE_GLOBAL, duration)
+
+    async def async_resume(self, zone_id):
+        # A pause or boost for all zones (e.g. from the app) ends for all zones, like in the app
+        zone = ZONE_GLOBAL
+        if self.multi_zone and not self.data[zone_id]["flags"] & ZONE_FLAG_GLOBAL_COMMAND:
+            zone = zone_id
+        await self.async_override(CMD_CANCEL, 0, FAN_OFF, zone)
+
+    async def async_boost(self, zone_id, duration):
+        if self.multi_zone:
+            # Speed 4 in the zone's current mode: the global boost doesn't change the mode either
+            mode = READ_MODE_TO_FAN.get(self.data[zone_id]["mode"], FAN_HEAT_RECOVERY)
+            await self.async_override(CMD_ZONE_SPEED_MODE, 4, mode, zone_id, duration)
+        else:
+            await self.async_override(CMD_GLOBAL_BOOST, 4, FAN_VENTILATION, ZONE_GLOBAL, duration)
+
+    async def async_set_zone_field(self, zone_id, field_id, raw):
+        await self._async_command(self.client.set_zone_field, zone_id, field_id, raw, self.zone_ids)
 
 
 class E16InfoCoordinator(DataUpdateCoordinator):
@@ -108,6 +151,7 @@ class E16InfoCoordinator(DataUpdateCoordinator):
 
     async def async_set_global_field(self, field_id, raw):
         try:
+            # The zone status read afterwards is not needed here
             await self.hass.async_add_executor_job(self.client.set_global_field, field_id, raw)
         except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 setting failed: {error}") from error

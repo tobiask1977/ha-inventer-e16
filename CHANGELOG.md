@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0b1 – 2026-11-07 (pre-release)
+
+Pre-release for testing on controllers with several zones; see #22.
+
+- **Several zones** (#22): every zone with radio devices assigned becomes its own device with fan,
+  sensors, profile, comfort settings, command duration and buttons. Commands go to that zone only;
+  before, switching the fan off or on and the buttons *Boost 15 min*, *Pause 1 h* and *Resume
+  profile* acted on all zones. Zone 1 stays on the controller device and keeps its entities, and
+  single-zone installations send the same commands as before. Each fan and sensor hangs below its
+  zone.
+- The integration reloads by itself when a radio device is added, removed or moved to another
+  zone (before, new devices needed a restart). Zones and devices the controller no longer reports
+  can be deleted in the UI.
+- Diagnostics contain the status of every zone in use (`zones` instead of `zone`).
+- Device type 27 is shown as iV-Twin+ fan unit.
+- Documentation: README and onboarding guide rewritten in English only and shortened.
+  Installation via the Marketplace of Home Assistant 2026.11 (HACS on older versions).
+
 ## 0.3.15 – 2026-10-21
 
 - **Onboarding with the phone** (#18): device ID and PSK can be read with a free BLE app such as

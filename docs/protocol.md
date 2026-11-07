@@ -152,6 +152,35 @@ mode reported as 1 (= ventilation in the status table). Cancel restored the prof
 Note: Cancel also makes an automatic profile re-evaluate immediately, so the state after
 "cancel" can differ from the state before the command.
 
+### Several zones
+
+A controller has up to four zones (ids 1–4, ZoneViewRow index = id − 1). All four indexes answer
+even when only one zone is set up: on a single-zone controller, zones 2–4 come back with an empty
+name, profile 0, speed 0, only the external-sensor flag, and the outdoor values of the shared
+outdoor sensor (verified). Index 4 and higher get no reply. Which zones are in use shows in the device rows: every radio device carries its zone id
+(the outdoor sensor 0, verified). The integration treats zone 1 and every zone with a radio device
+as in use.
+
+Reported by a user from a controller with four zones (controller 5.30.11, fans 5.30.10; issue
+#22), tested with the client of this integration, not checked here:
+- Zone speed/mode (5) with a zone id changes only that zone, including the pause with speed 0 and
+  mode 3 or 4. The zone status reports mode 0 for both pause modes; only the record at 74 tells
+  them apart.
+- Cancel (7) with a zone id ends only that zone and leaves that zone's record at 74 unchanged, so
+  the record alone doesn't tell whether a zone command still runs. Cancel with zone 255 ends the
+  commands in all zones and writes the cancel record into every zone.
+- Global boost (1) and global pause (2) act on all zones, also with durations other than the
+  app's (boost 1800 s, pause 900 s). The global boost sets the speed but keeps each zone's mode,
+  even when the command carries mode 2.
+- After a cancel for all zones, playback of one zone lagged behind for more than 45 s (as in
+  #1).
+
+Not verified: a zone pause without end (zone speed/mode with duration `0xFFFFFFFF`), which the
+integration sends when a zone's fan is switched off on a controller with several zones, and
+writing ZoneRowField for zones other than zone 1. Whether a cancel for one zone ends a global
+pause or boost in that zone is not known either; while flag bit 4 (global command) is set, the
+integration therefore sends the cancel for all zones.
+
 ### 136 GlobalDataField
 
 | Id | Content | Encoding |
@@ -180,9 +209,9 @@ temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6
 | Offset | Type | Content |
 |---:|---|---|
 | 0 | u8 | Address |
-| 1 | u8 | Device type: 1 controller, 2/3 fan unit, 4 indoor T/RH sensor, 5 outdoor T/RH sensor, 6 CO₂ sensor, 8 alarm interface, 12 battery sensor, 21 Wi-Fi module, … |
+| 1 | u8 | Device type: 1 controller, 2/3 fan unit, 4 indoor T/RH sensor, 5 outdoor T/RH sensor, 6 CO₂ sensor, 8 alarm interface, 12 battery sensor, 21 Wi-Fi module, 27 iV-Twin+ fan unit (reported in #22), … |
 | 2 | u8 | Hardware type (1 controller, 2 fan, 3 sensor) |
-| 3 | u8 | Zone id |
+| 3 | u8 | Zone id (0 for the outdoor sensor, verified) |
 | 4 | u32 | Status bits: 1 offline, 2 online, 4 config pending, 8/16/32 firmware update in progress/ready/failed, 64 battery low, 128 battery critical, 1024 device lost, 2048 alarm, 8192 service due soon, 16384 filter due soon, 32768 service expired, 65536 filter expired, 131072 time not set |
 | 8 | i8 | Direct radio level in dBm (126 seen = no reading) |
 | 9 | u32 | Firmware version |

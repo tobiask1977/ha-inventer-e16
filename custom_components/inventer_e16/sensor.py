@@ -9,7 +9,7 @@ from homeassistant.const import (PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
 from homeassistant.util import dt as dt_util
 
 from .client import FOREVER
-from .entity import E16Entity
+from .entity import E16Entity, zone_has
 from .humidity import absolute_humidity, dew_point
 
 PLAYBACK = {0: "play", 1: "pause", 2: "boost", 3: "off", 4: "shutdown", 5: "override"}
@@ -52,10 +52,15 @@ DAYS_PER_MONTH = 30.4375
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = entry.runtime_data
-    entities = [E16ZoneSensor(data.zone, entry, *description) for description in ZONE_SENSORS]
-    entities += [E16ZoneSensor(data.zone, entry, *description) for description in OPTIONAL_ZONE_SENSORS
-                 if data.zone.data[description[0]] is not None]
-    entities += [E16ClimateSensor(data.zone, entry, *description) for description in CLIMATE_SENSORS]
+    entities = []
+    for zone_id in data.zone.zone_ids:
+        entities += [E16ZoneSensor(data.zone, entry, *description, zone_id=zone_id)
+                     for description in ZONE_SENSORS if zone_has(data, zone_id, description[0])]
+        entities += [E16ZoneSensor(data.zone, entry, *description, zone_id=zone_id)
+                     for description in OPTIONAL_ZONE_SENSORS
+                     if data.zone.data[zone_id][description[0]] is not None]
+        entities += [E16ClimateSensor(data.zone, entry, *description, zone_id=zone_id)
+                     for description in CLIMATE_SENSORS if zone_has(data, zone_id, description[0])]
     for prefix in ("filter", "service"):
         entities += [E16DueSensor(data.info, entry, prefix, as_date=True),
                      E16DueSensor(data.info, entry, prefix, as_date=False)]
@@ -79,8 +84,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class E16ZoneSensor(E16Entity, SensorEntity):
-    def __init__(self, coordinator, entry, key, device_class, unit):
-        super().__init__(coordinator, entry, key)
+    def __init__(self, coordinator, entry, key, device_class, unit, zone_id=1):
+        super().__init__(coordinator, entry, key, zone_id=zone_id)
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit
         # speed included: its hourly mean shows how hard the ventilation works over months
@@ -94,7 +99,7 @@ class E16ZoneSensor(E16Entity, SensorEntity):
 
     @property
     def native_value(self):
-        value = self.coordinator.data[self.key]
+        value = self.zone[self.key]
         if self.key == "last_override":
             return COMMANDS.get(value["command"]) if value else None
         if self.key in OPTIONS:
@@ -103,20 +108,24 @@ class E16ZoneSensor(E16Entity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        value = self.coordinator.data.get("last_override")
+        value = self.zone.get("last_override")
         if self.key != "last_override" or not value:
             return None
         return {"speed": value["speed"], "fan_mode": value["mode"], "zone": value["zone"],
                 "duration_s": None if value["duration"] == FOREVER else value["duration"],
-                "active": override_active(value, self.coordinator.data["timer"])}
+                "active": override_active(value, self.zone)}
 
 
-def override_active(record, timer):
+def override_active(record, zone):
     """Whether the last command still applies. An expired command keeps its record; only the
-    remaining timer drops to 0 (issue #2). Cancel and "fans off ended" never apply."""
+    remaining timer drops to 0 (issue #2). A cancel for one zone keeps the zone's record too (#22),
+    so a command without end applies only while the zone runs at its speed. Cancel and "fans off
+    ended" never apply."""
     if record["command"] in NOT_ACTIVE:
         return False
-    return record["duration"] == FOREVER or timer > 0
+    if record["duration"] == FOREVER:
+        return zone["speed"] == record["speed"]
+    return zone["timer"] > 0
 
 
 class E16DueSensor(E16Entity, SensorEntity):
@@ -226,8 +235,8 @@ class E16ClimateSensor(E16Entity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 1
 
-    def __init__(self, coordinator, entry, key, side, kind):
-        super().__init__(coordinator, entry, key)
+    def __init__(self, coordinator, entry, key, side, kind, zone_id=1):
+        super().__init__(coordinator, entry, key, zone_id=zone_id)
         self.side, self.kind = side, kind
         if kind == "dew_point":
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
@@ -241,12 +250,12 @@ class E16ClimateSensor(E16Entity, SensorEntity):
             self._attr_icon = "mdi:thermometer-water"
 
     def _dew_point(self, side):
-        data = self.coordinator.data
+        data = self.zone
         return dew_point(data[f"{side}_temperature"], data[f"{side}_humidity"])
 
     @property
     def native_value(self):
-        data = self.coordinator.data
+        data = self.zone
         if self.kind == "dew_point":
             return self._dew_point(self.side)
         if self.kind == "absolute":

@@ -9,29 +9,28 @@ from homeassistant.const import EntityCategory
 from . import client
 from .entity import E16Entity
 
-# Boost like the app's quick boost for this controller family: 15 min
-COMMANDS = (
-    ("boost", (client.CMD_GLOBAL_BOOST, 4, client.FAN_VENTILATION, client.ZONE_GLOBAL, 900)),
-    ("resume", (client.CMD_CANCEL, 0, client.FAN_OFF, client.ZONE_GLOBAL, 0)),
-    # Quick pause of the app's home screen: ends after one hour
-    ("pause_1h", (client.CMD_GLOBAL_PAUSE, 0, client.FAN_OFF, client.ZONE_GLOBAL, 3600)),
-)
+# Boost like the app's quick boost for this controller family: 15 min. Quick pause of the app's
+# home screen: ends after one hour. Which command goes out depends on the number of zones.
+COMMANDS = {
+    "boost": lambda zones, zone_id: zones.async_boost(zone_id, 900),
+    "resume": lambda zones, zone_id: zones.async_resume(zone_id),
+    "pause_1h": lambda zones, zone_id: zones.async_pause(zone_id, 3600),
+}
 RESETS = (("filter_reset", client.F_FILTER_RESET), ("service_reset", client.F_SERVICE_RESET))
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = entry.runtime_data
-    async_add_entities([*(E16Command(data.zone, entry, *item) for item in COMMANDS),
-                        *(E16Reset(data.info, entry, *item) for item in RESETS)])
+    async_add_entities([
+        *(E16Command(data.zone, entry, key, zone_id=zone_id)
+          for zone_id in data.zone.zone_ids for key in COMMANDS),
+        *(E16Reset(data.info, entry, *item) for item in RESETS),
+    ])
 
 
 class E16Command(E16Entity, ButtonEntity):
-    def __init__(self, coordinator, entry, key, command):
-        super().__init__(coordinator, entry, key)
-        self.command = command
-
     async def async_press(self):
-        await self.coordinator.async_override(*self.command)
+        await COMMANDS[self.key](self.coordinator, self.zone_id)
 
 
 class E16Reset(E16Entity, ButtonEntity):

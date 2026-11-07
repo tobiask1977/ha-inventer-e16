@@ -24,7 +24,8 @@ def interval_option(months):
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = entry.runtime_data
-    async_add_entities([E16Profile(data.zone, entry, "profile"),
+    async_add_entities([*(E16Profile(data.zone, entry, "profile", zone_id=zone_id)
+                          for zone_id in data.zone.zone_ids),
                         *(E16Interval(data.info, entry, *item) for item in INTERVALS)])
 
 
@@ -32,7 +33,7 @@ class E16Profile(E16Entity, SelectEntity):
     """Permanent profile of the zone (ZoneRowField 1), like the profile choice in the app."""
 
     def _current(self):
-        value = self.coordinator.data["profile"]
+        value = self.zone["profile"]
         return PROFILES.get(value) or HIDDEN_PROFILES.get(value)
 
     @property
@@ -47,7 +48,7 @@ class E16Profile(E16Entity, SelectEntity):
 
     async def async_select_option(self, option):
         value = next(k for k, v in {**PROFILES, **HIDDEN_PROFILES}.items() if v == option)
-        await self.coordinator.async_set_zone_field(client.ZF_PROFILE, bytes([value]))
+        await self.coordinator.async_set_zone_field(self.zone_id, client.ZF_PROFILE, bytes([value]))
 
 
 class E16Interval(E16Entity, SelectEntity):

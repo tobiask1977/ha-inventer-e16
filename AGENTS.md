@@ -9,10 +9,10 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
 | Path | Content |
 |---|---|
 | `custom_components/inventer_e16/client.py` | Protocol client – **no Home Assistant imports**, testable on its own |
-| `custom_components/inventer_e16/coordinator.py` | Polling: zone every 30 s (option), maintenance/firmware every 10 min, vendor catalog daily |
+| `custom_components/inventer_e16/coordinator.py` | Polling: zones in use every 30 s (option), maintenance/firmware/radio devices every 10 min, vendor catalog daily |
 | `custom_components/inventer_e16/<platform>.py` | Entities (sensor, binary_sensor, fan, button, number, select, update) |
 | `custom_components/inventer_e16/strings.json`, `translations/` | Entity names and states (English, German) |
-| `tests/test_client.py` | Protocol tests with anonymised real replies (`pytest tests`) |
+| `tests/test_client.py`, `tests/simulator.py` | Protocol tests with anonymised real replies, simulated controller (`pytest tests`) |
 | `tools/e16_onboard.py` | BLE tool to read device ID and PSK |
 | `docs/protocol.md`, `docs/onboarding.md` | Protocol reference, pairing guide |
 
@@ -36,8 +36,10 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
 7. **Translations.** New entities get a `translation_key`; add name and states to
    `strings.json`, `translations/en.json` and `translations/de.json`. State values are keys
    (`heat_recovery`), not display text.
-8. **Keep unique IDs stable.** `<device_id>_<key>` and `<device_id>_<address>_<key>` – changing a
-   key orphans the user's entities.
+8. **Keep unique IDs stable.** `<device_id>_<key>` (controller and zone 1),
+   `<device_id>_zone<n>_<key>` (zones 2–4) and `<device_id>_<address>_<key>` (radio devices) –
+   changing a key orphans the user's entities. Device identifiers: `<device_id>`,
+   `<device_id>_zone<n>`, `<device_id>_<address>`.
 
 ## Before a release
 
