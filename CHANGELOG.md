@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.4.0b1 – 2026-11-07 (pre-release)
+
+Pre-release for testing on controllers with several zones; see #22.
 
 - **Several zones** (#22): every zone with radio devices assigned becomes its own device with fan,
   sensors, profile, comfort settings, command duration and buttons. Commands go to that zone only;
