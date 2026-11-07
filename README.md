@@ -1,36 +1,97 @@
 # inVENTer Easy Connect e16 for Home Assistant
 
-Local control of inVENTer decentralised ventilation systems with the **Easy Connect e16**
-controller – over your Wi-Fi, without the manufacturer's cloud.
+Local control of inVENTer decentralised ventilation through the **Easy Connect e16** controller:
+over your Wi-Fi, without the manufacturer's cloud.
 
-> 🇩🇪 **Kurz auf Deutsch:** Diese Integration bindet eine **inVENTer-Lüftung** (dezentrale
-> Wohnraumlüftung mit Wärmerückgewinnung) über den Regler **inVENTer Easy Connect e16** mit
-> WLAN-Modul **lokal in Home Assistant** ein – ohne Cloud. Lüfterstufe, Wärmerückgewinnung oder
-> Durchlüftung, Boost, Pause und Lüftungsprofil (z. B. Sommer, Keller) steuern; Temperatur,
-> Luftfeuchte und Batterie der Funksensoren, Filterwechsel, Wartung und Firmware-Updates sehen.
-> Getestet mit zwei Lüftern iV14-Zero sowie Innen- und Außensensor am Easy Connect e16; andere
-> Lüfter am e16 sollten genauso funktionieren, sind aber nicht geprüft.
-> Anleitung zum Koppeln auf Deutsch: [docs/onboarding.md](docs/onboarding.md#deutsch).
-
-> **Unofficial.** This project is not affiliated with, endorsed or supported by inVENTer GmbH.
-> "inVENTer" and "Easy Connect" are trademarks of their respective owner and are used here only
-> to describe compatibility. Use at your own risk.
+> **Unofficial.** Not affiliated with, endorsed or supported by inVENTer GmbH. Use at your own
+> risk, see [Disclaimer](#disclaimer).
 
 ## Features
 
-| Area | Entities |
-|---|---|
-| **Control** | Fan with speed 1–4 and modes *heat recovery* / *ventilation*; off = unlimited pause, on = resume the profile; buttons *Boost 15 min*, *Pause 1 h* and *Resume profile*; *command duration* 15 min–8 h |
-| **Profile** | Select the ventilation profile (default, bedroom, …, summer, cellar heat recovery, cellar with ventilation) and its comfort settings (comfort temperature indoor/outdoor, humidity threshold; CO₂/VOC threshold with such a sensor) |
-| Zone | Speed, playback, mode, timer, indoor/outdoor temperature and humidity, CO₂/VOC (if a sensor is present), system status, last command |
-| **Humidity** | Dew point and absolute humidity indoor/outdoor, dew point difference, and *Ventilation dries* – whether outdoor air would actually remove moisture (useful for cellars) |
-| **Maintenance** | Filter change and service: due date, days left, "due" flags from the controller, interval selection, *confirm* buttons |
-| **Firmware** | Update entities for Wi-Fi module, controller, fans and sensors, compared against the manufacturer's firmware catalog (opt-in, see Privacy). Installing stays with the official app |
-| Radio devices | Each fan and sensor as its own device: radio signal, runtime, temperature, humidity, battery; *battery low*, *radio device missing* and *alarm* flags |
-| Diagnostics | Fan power per speed level and reversal interval (read only); downloadable diagnostics with PSK, host and device ID redacted |
+- **Control:** a fan entity with speed 1–4 and the modes *heat recovery* and *ventilation*.
+  Off pauses the ventilation until you switch it on again; on returns to the profile. Buttons
+  *Boost 15 min*, *Pause 1 h* and *Resume profile*.
+- **Profiles:** select the ventilation profile and set its comfort values (indoor and outdoor
+  comfort temperature, humidity threshold, CO₂/VOC threshold if such a sensor is installed).
+- **Sensors:** speed, mode, playback, timer, indoor and outdoor temperature and humidity, CO₂/VOC,
+  system status and last command. Calculated: dew points, absolute humidity, and *Ventilation
+  dries*, which tells whether outdoor air would actually remove moisture (useful for cellars).
+- **Radio devices:** every fan and sensor becomes its own device with radio signal, runtime,
+  temperature, humidity, battery and problem flags.
+- **Maintenance:** filter change and service with due date, days left, interval and *confirm*
+  buttons.
+- **Firmware:** update entities for the Wi-Fi module, controller, fans and sensors. Installing
+  updates stays with the official app.
+- **Time programs:** read and edit the schedules of the ventilation profiles (see
+  [Actions](#actions)).
+- **Diagnostics:** fan power per speed level, reversal interval, and a diagnostics download with
+  PSK, host and device ID redacted.
 
-For automations there is the service **`inventer_e16.set_mode`** (mode, speed, duration), e.g.
-a pause that ends by itself:
+## Requirements
+
+- Easy Connect e16 with Wi-Fi module, connected to your network with the official app.
+- Home Assistant 2026.9 or newer.
+- Once, to read the device key: a phone with a Bluetooth app, or a computer with Bluetooth LE and
+  Python.
+
+## Installation
+
+### 1. Install the integration
+
+[![Open in Marketplace](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tobiask1977&repository=ha-inventer-e16&category=integration)
+
+Home Assistant 2026.11 or newer: *Settings → Marketplace*, search for **inVENTer Easy Connect
+e16** and install it. On older versions, download it from HACS and restart Home Assistant.
+
+Manual installation: copy `custom_components/inventer_e16` to `/config/custom_components/` and
+restart.
+
+### 2. Read the device ID and PSK (once)
+
+The controller encrypts the local connection with a key (PSK) that is different for every
+device. The official app never shows it, but the controller hands it out over Bluetooth while it
+is in pairing mode. **[docs/onboarding.md](docs/onboarding.md)** shows both ways step by step:
+with a free Bluetooth app on your phone, or with the Python tool in this repository:
+
+```bash
+pip install -r tools/requirements.txt
+# hold the mode button on the controller until the LED blinks blue, then:
+python tools/e16_onboard.py read
+```
+
+Reading changes nothing on the controller, and the official app keeps working. Keep the PSK
+private: anyone on your network who has it can control the ventilation.
+
+### 3. Add the controller
+
+Home Assistant usually discovers the controller by itself and fills in host and device ID, so you
+only enter the PSK. Otherwise go to *Settings → Devices & services → Add integration →
+inVENTer Easy Connect e16* and enter host, device ID and PSK.
+
+Reserve the controller's IP address in your router. If it changes anyway, Home Assistant usually
+picks up the new one by itself. For a new address or key (for example after a factory reset), use
+**Reconfigure** on the integration. If the controller rejects the stored key, Home Assistant asks
+for the new one.
+
+**Options:** how often the status is polled (15–3600 s, default 30 s; it is read again right after
+every command) and the firmware check (see [Privacy](#privacy)).
+
+## Usage
+
+Speed and mode changes are **temporary**, as in the app. The *Command duration* entity
+(15 min–8 h) sets how long they last; after that the controller returns to its profile. For
+permanent changes, select another profile or edit its time program.
+
+### Actions
+
+| Action | What it does |
+|---|---|
+| `inventer_e16.set_mode` | Temporary mode, speed and duration in one call |
+| `inventer_e16.get_time_program` | Returns the time program of a profile (default: the current one) |
+| `inventer_e16.set_time_program_entry` | Writes one entry (0–31) of a profile's time program and reads it back |
+| `inventer_e16.delete_time_program_entry` | Deletes one entry |
+
+A pause that ends by itself after 30 minutes:
 
 ```yaml
 action: inventer_e16.set_mode
@@ -41,11 +102,7 @@ data:
   minutes: 30
 ```
 
-Speed and mode are **time-limited commands** exactly like in the app: when the command duration
-ends, the controller returns to its profile. Permanent changes are made through the profile.
-
-**`inventer_e16.get_time_program`** returns the time program of a ventilation profile (default: the
-current one; the automatic and cellar profiles have none) – read only for now:
+Read a time program. Each entry has `time`, `days`, `mode` and `speed`:
 
 ```yaml
 action: inventer_e16.get_time_program
@@ -56,10 +113,7 @@ data:
 response_variable: program
 ```
 
-Each entry has `time`, `days`, `mode` (as in `set_mode`) and `speed`.
-
-**`inventer_e16.set_time_program_entry`** and **`delete_time_program_entry`** change one entry
-(slot 0–31) of a profile's time program; every write is read back from the controller:
+Change one entry. It applies whenever that profile is active:
 
 ```yaml
 action: inventer_e16.set_time_program_entry
@@ -74,83 +128,38 @@ data:
   speed: 2
 ```
 
-The change applies whenever that profile is active. Read the program first and keep a copy –
-there is no undo.
-
-## Requirements
-
-- Easy Connect e16 with Wi-Fi module, connected to your network (set up with the official app)
-- Home Assistant 2026.9 or newer (Python ≥ 3.13 for TLS-PSK)
-- Once: a computer with Bluetooth LE and Python, or a phone with a BLE app, to read the device key
-
-## Installation
-
-### 1. Read device ID and PSK (once)
-
-The controller encrypts the local connection with a key that is individual per device. The app
-never shows it, but the controller hands it out over Bluetooth while in pairing mode.
-Step-by-step guide with troubleshooting: **[docs/onboarding.md](docs/onboarding.md)**
-(also in German).
-No computer at hand? It also works with a free Bluetooth app on your phone:
-**[step by step with screenshots](docs/onboarding.md#without-python-a-ble-app-on-your-phone)**.
-
-```bash
-pip install -r tools/requirements.txt
-# hold the mode button on the controller until the LED blinks blue, then:
-python tools/e16_onboard.py scan
-python tools/e16_onboard.py read            # or: read AA:BB:CC:DD:EE:FF
-```
-
-The tool prints the **device ID** and the **PSK**. It only reads – it does not change the
-pairing with your app. Keep the PSK private: anyone on your network with it can control the
-ventilation.
-
-### 2. Install the integration
-
-**HACS:** search for *inVENTer Easy Connect e16* in HACS, download it and restart Home Assistant.
-Or open it directly:
-
-[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tobiask1977&repository=ha-inventer-e16&category=integration)
-
-**Manual:** copy `custom_components/inventer_e16` to `/config/custom_components/` and restart.
-
-### 3. Add it
-
-*Settings → Devices & services → Add integration → inVENTer Easy Connect e16*, then enter host,
-device ID and PSK. Reserve the controller's IP address in your DHCP server.
-
-Home Assistant usually finds the controller by itself ("Discovered: inVENTer Easy Connect e16") with host and
-device ID already filled in – it announces itself as `Easy Connect e16-<device id>` or `noName-<device id>` – then only the PSK is needed. A new IP address is picked up automatically:
-right away if Home Assistant sees the controller's DHCP traffic (same network), otherwise – through a router
-integration such as UniFi device trackers – at the next Home Assistant start. Reserving the address avoids
-the gap.
-
-**Options:** polling interval of the zone status (15–3600 s, default 30 s; after a command the
-status is read right away anyway) and the firmware check (see Privacy).
-
-New IP address or key later (e.g. after a factory reset)? Use **Reconfigure** on the integration; if the
-controller rejects the stored key, Home Assistant asks for the new one by itself.
+There is no undo: read the program first and keep a copy. The automatic and cellar profiles have
+no time program.
 
 ## Privacy
 
-Everything runs locally on TCP 47820. The only exception is the optional firmware check, **off by
-default** since 0.3.14: switched on in the integration options, the integration asks the
-manufacturer's firmware catalog (a Firebase function) once a day which versions are current. It
-sends only the brand name `inventer`, but the manufacturer's cloud sees your public IP address and
-the Home Assistant version. Without it, the firmware entities show the installed version only.
-Installations set up before 0.3.14 keep the check switched on.
+Everything runs locally over TCP port 47820. The only exception is the optional firmware check.
+When you switch it on in the options, the integration asks the manufacturer's firmware catalog
+once a day which versions are current. It sends only the brand name, but the manufacturer's cloud
+sees your public IP address and Home Assistant version. Without the check, the firmware entities
+show the installed version only.
+
+The check is off for installations set up with 0.3.14 or later. Older installations keep it on
+until you switch it off.
 
 ## Limitations
 
-- Only the first zone of a controller is supported (multi-zone systems: please open an issue).
+- **Multi-zone controllers:** the integration shows zone 1 only. Speed and mode changes affect
+  zone 1, but switching the fan on or off and the buttons *Boost 15 min*, *Pause 1 h* and *Resume
+  profile* affect all zones. Full multi-zone support is discussed in
+  [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22).
 - Custom profiles cannot be created or renamed (their time programs can be edited).
 - Firmware cannot be installed from Home Assistant.
-- Tested with one installation (two fan units, indoor and outdoor sensor).
+- Developed on one installation with two iV14 Zero fans and an indoor and outdoor sensor. Other
+  fans on the e16 should work, but this hasn't been confirmed.
+
+Something doesn't work, or your setup is different? Open an issue and attach the diagnostics
+download, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## How it works
 
-See [docs/protocol.md](docs/protocol.md) for the packet formats and what has been verified on a
-real device.
+[docs/protocol.md](docs/protocol.md) describes the packet formats and what has been verified on a
+real controller.
 
 ## Development
 
@@ -158,7 +167,7 @@ real device.
 pip install pytest
 pytest tests --ignore=tests/ha          # protocol tests, any OS
 pip install pytest-homeassistant-custom-component
-pytest tests/ha                         # config flow tests, Linux/macOS
+pytest tests/ha                         # Home Assistant tests, Linux/macOS
 ```
 
 The protocol client (`custom_components/inventer_e16/client.py`) has no Home Assistant
@@ -166,42 +175,25 @@ dependency and can be used on its own.
 
 ## License
 
-Copyright (c) 2026 Tobias Krautkremer. Released under the [MIT License](LICENSE): you may use,
-copy, modify and distribute this software, including commercially, as long as the copyright
-notice and the license text are kept. Source files carry the identifier
-`SPDX-License-Identifier: MIT`.
+[MIT](LICENSE), Copyright (c) 2026 Tobias Krautkremer.
 
-"inVENTer" and "Easy Connect" are trademarks of their respective owner. They are used only to
-describe which devices this software works with; no endorsement is implied. This repository
-contains no code, images, logos or other material of the manufacturer or its app. The icon in
-`custom_components/inventer_e16/brand/` is an original design for this project (MIT).
+"inVENTer" and "Easy Connect" are trademarks of their owner and are used here only to say which
+devices this software works with. This repository contains no code, images, logos or other
+material from the manufacturer or its app. The icon in `custom_components/inventer_e16/brand/` is
+an original design for this project.
 
 ## Disclaimer
 
-This is an independent, unofficial project, provided **"as is", without warranty of any kind**
-(see the [license](LICENSE)). It was developed by observing and analysing the device's
-communication for interoperability and has been tested on a single installation only.
-
-You use it **at your own risk**. In particular:
+This is an independent, unofficial project, provided **as is, without warranty of any kind**. It
+was developed by analysing the device's communication for interoperability, and you use it **at
+your own risk**:
 
 - Commands change how your ventilation runs. Wrong settings over a longer time can affect indoor
   air quality and humidity (risk of condensation and mould). Check the result.
 - Using unofficial software may affect warranty or support claims against the manufacturer.
-- The manufacturer can change firmware or cloud services at any time, which may break this
+- The manufacturer can change the firmware or its cloud services at any time, which may break this
   integration without notice.
 
-To the extent permitted by law, the authors are not liable for any damage to devices, buildings,
-health or data, or for any other loss arising from the use of this software.
-
-### Haftungsausschluss (Deutsch)
-
-Dies ist ein unabhängiges, inoffizielles Projekt, das ohne jede Gewährleistung bereitgestellt
-wird („wie besehen“, siehe [Lizenz](LICENSE)). Es entstand durch Beobachtung und Analyse der
-Gerätekommunikation zum Zweck der Interoperabilität und wurde nur an einer einzigen Anlage
-getestet. Die Nutzung erfolgt **auf eigene Gefahr**. Befehle verändern den Betrieb der Lüftung;
-falsche Einstellungen über längere Zeit können Raumluft und Feuchte beeinträchtigen
-(Kondensat- und Schimmelgefahr). Die Verwendung inoffizieller Software kann Gewährleistungs- oder
-Supportansprüche gegenüber dem Hersteller berühren. Soweit gesetzlich zulässig, haften die
-Autoren nicht für Schäden an Geräten, Gebäuden, Gesundheit oder Daten oder sonstige Schäden, die
-aus der Nutzung entstehen; die gesetzliche Haftung für Vorsatz und grobe Fahrlässigkeit sowie für
-Schäden aus der Verletzung von Leben, Körper oder Gesundheit bleibt unberührt.
+To the extent permitted by law, the authors are not liable for damage to devices, buildings,
+health or data, or for any other loss arising from the use of this software. This does not limit
+liability for intent or gross negligence, or for injury to life, body or health.

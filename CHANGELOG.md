@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Documentation: README and onboarding guide rewritten in English only and shortened.
+  Installation via the Marketplace of Home Assistant 2026.11 (HACS on older versions). The README
+  now explains which commands affect all zones on multi-zone controllers.
+
 ## 0.3.15 – 2026-10-21
 
 - **Onboarding with the phone** (#18): device ID and PSK can be read with a free BLE app such as
