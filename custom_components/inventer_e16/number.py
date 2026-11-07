@@ -25,15 +25,17 @@ ZONE_SETTINGS = (
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    zone = entry.runtime_data.zone
-    async_add_entities([
-        E16Duration(zone, entry, "override_minutes"),
-        *(E16ZoneSetting(zone, entry, *setting) for setting in ZONE_SETTINGS
-          if setting[7] is None or zone.data.get(setting[7]) is not None),
-    ])
+    zones = entry.runtime_data.zone
+    entities = []
+    for zone_id in zones.zone_ids:
+        entities.append(E16Duration(zones, entry, "override_minutes", zone_id=zone_id))
+        entities += [E16ZoneSetting(zones, entry, *setting, zone_id=zone_id) for setting in ZONE_SETTINGS
+                     if setting[7] is None or zones.data[zone_id].get(setting[7]) is not None]
+    async_add_entities(entities)
 
 
 class E16Duration(E16Entity, RestoreNumber):
+    """How long speed and mode commands of the zone last."""
     _attr_entity_category = EntityCategory.CONFIG
     _attr_mode = NumberMode.BOX
     _attr_native_min_value = 15
@@ -45,7 +47,7 @@ class E16Duration(E16Entity, RestoreNumber):
         await super().async_added_to_hass()
         last = await self.async_get_last_number_data()
         if last and last.native_value:
-            self.coordinator.override_minutes = int(last.native_value)
+            self.coordinator.override_minutes[self.zone_id] = int(last.native_value)
 
     @property
     def available(self):
@@ -53,10 +55,10 @@ class E16Duration(E16Entity, RestoreNumber):
 
     @property
     def native_value(self):
-        return self.coordinator.override_minutes
+        return self.coordinator.minutes(self.zone_id)
 
     async def async_set_native_value(self, value):
-        self.coordinator.override_minutes = int(value)
+        self.coordinator.override_minutes[self.zone_id] = int(value)
         self.async_write_ha_state()
 
 
@@ -65,8 +67,9 @@ class E16ZoneSetting(E16Entity, NumberEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_mode = NumberMode.BOX
 
-    def __init__(self, coordinator, entry, key, field, minimum, maximum, step, unit, device_class, _):
-        super().__init__(coordinator, entry, key)
+    def __init__(self, coordinator, entry, key, field, minimum, maximum, step, unit, device_class, _,
+                 zone_id=1):
+        super().__init__(coordinator, entry, key, zone_id=zone_id)
         self.field = field
         self._attr_native_min_value = minimum
         self._attr_native_max_value = maximum
@@ -76,8 +79,9 @@ class E16ZoneSetting(E16Entity, NumberEntity):
 
     @property
     def native_value(self):
-        return self.coordinator.data.get(self.key)
+        return self.zone.get(self.key)
 
     async def async_set_native_value(self, value):
-        await self.coordinator.async_set_zone_field(self.field, struct.pack("<f", float(value)))
+        await self.coordinator.async_set_zone_field(
+            self.zone_id, self.field, struct.pack("<f", float(value)))
 

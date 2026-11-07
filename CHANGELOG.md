@@ -2,9 +2,16 @@
 
 ## Unreleased
 
+- **Several zones** (#22): every zone with radio devices assigned becomes its own device with fan,
+  sensors, profile, comfort settings, command duration and buttons. Commands go to that zone only;
+  before, switching the fan off or on and the buttons *Boost 15 min*, *Pause 1 h* and *Resume
+  profile* acted on all zones. Zone 1 stays on the controller device and keeps its entities, and
+  single-zone installations send the same commands as before. Each fan and sensor hangs below its
+  zone. A zone that comes into use later reloads the integration.
+- Diagnostics contain the status of every zone in use (`zones` instead of `zone`).
+- Device type 27 is shown as iV-Twin+ fan unit.
 - Documentation: README and onboarding guide rewritten in English only and shortened.
-  Installation via the Marketplace of Home Assistant 2026.11 (HACS on older versions). The README
-  now explains which commands affect all zones on multi-zone controllers.
+  Installation via the Marketplace of Home Assistant 2026.11 (HACS on older versions).
 
 ## 0.3.15 – 2026-10-21
 

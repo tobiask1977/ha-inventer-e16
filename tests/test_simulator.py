@@ -84,10 +84,10 @@ def test_simulator_refuses_to_address_the_whole_time_program_store():
 def test_command_and_cancel(monkeypatch):
     controller = sim.FakeController()
     e16 = wired(monkeypatch, controller)
-    zone = e16.user_override(client.CMD_ZONE_SPEED_MODE, 3, client.FAN_VENTILATION, 1, 1800)
+    zone = e16.user_override(client.CMD_ZONE_SPEED_MODE, 3, client.FAN_VENTILATION, 1, 1800)[1]
     assert (zone["speed"], zone["mode"], zone["playback"], zone["timer"]) == (3, 1, 5, 1800)
     assert zone["last_override"] == {"command": 5, "speed": 3, "mode": 2, "zone": 1, "duration": 1800}
-    zone = e16.user_override(client.CMD_CANCEL)
+    zone = e16.user_override(client.CMD_CANCEL)[1]
     assert (zone["speed"], zone["mode"], zone["playback"], zone["timer"]) == (1, 2, 0, 0)
     assert zone["last_override"]["command"] == client.CMD_CANCEL
 
@@ -110,7 +110,7 @@ def test_playback_lags_while_speed_and_record_fit_at_once(monkeypatch):
     controller = sim.FakeController(playback_lag=240)
     e16 = wired(monkeypatch, controller)
     e16.user_override(client.CMD_ZONE_SPEED_MODE, 2, client.FAN_HEAT_RECOVERY, 1, 3600)
-    zone = e16.user_override(client.CMD_CANCEL)
+    zone = e16.user_override(client.CMD_CANCEL)[1]
     assert (zone["speed"], zone["playback"], zone["last_override"]["command"]) == (1, 5, 7)
     controller.advance(240)
     assert e16.get_zone()["playback"] == 0
@@ -119,11 +119,11 @@ def test_playback_lags_while_speed_and_record_fit_at_once(monkeypatch):
 def test_global_pause_and_cancel(monkeypatch):
     controller = sim.FakeController(playback_lag=10)
     e16 = wired(monkeypatch, controller)
-    zone = e16.user_override(client.CMD_GLOBAL_PAUSE, duration=client.FOREVER)
+    zone = e16.user_override(client.CMD_GLOBAL_PAUSE, duration=client.FOREVER)[1]
     assert (zone["speed"], zone["mode"], zone["playback"], zone["flags"] & 16) == (0, 0, 1, 16)
     controller.advance(10)
     assert e16.get_zone()["playback"] == 4
-    zone = e16.user_override(client.CMD_CANCEL)
+    zone = e16.user_override(client.CMD_CANCEL)[1]
     assert (zone["speed"], zone["playback"], zone["flags"] & 16) == (1, 4, 0)
 
 
@@ -131,7 +131,7 @@ def test_command_stored_but_not_applied_is_reported_as_it_is(monkeypatch):
     # The record says speed 4, the fans still run the schedule: speed tells what really runs
     controller = sim.FakeController(apply_commands=False)
     zone = wired(monkeypatch, controller).user_override(
-        client.CMD_ZONE_SPEED_MODE, 4, client.FAN_VENTILATION, 1, 900)
+        client.CMD_ZONE_SPEED_MODE, 4, client.FAN_VENTILATION, 1, 900)[1]
     assert zone["last_override"]["speed"] == 4
     assert (zone["speed"], zone["mode"], zone["playback"]) == (1, 2, 0)
 
@@ -139,10 +139,10 @@ def test_command_stored_but_not_applied_is_reported_as_it_is(monkeypatch):
 def test_zone_settings_show_in_the_next_zone_status(monkeypatch):
     controller = sim.FakeController()
     e16 = wired(monkeypatch, controller)
-    zone = e16.set_zone_field(1, client.ZF_COMFORT_ROOM, struct.pack("<f", 20.5))
+    zone = e16.set_zone_field(1, client.ZF_COMFORT_ROOM, struct.pack("<f", 20.5))[1]
     assert zone["comfort_room_temperature"] == 20.5
-    assert e16.set_zone_field(1, client.ZF_PROFILE, bytes([7]))["profile"] == 7
-    e16.set_zone_field(2, client.ZF_PROFILE, bytes([3]))  # there is no zone 2
+    assert e16.set_zone_field(1, client.ZF_PROFILE, bytes([7]))[1]["profile"] == 7
+    e16.set_zone_field(2, client.ZF_PROFILE, bytes([3]))  # zone 2 is not in use
     assert e16.get_zone()["profile"] == 7
     assert controller.ignored_writes == [(client.T_ZONE_FIELD, 2 * 65536 + 1, b"\x03")]
 
@@ -188,13 +188,77 @@ def test_time_program_write_that_is_not_stored(monkeypatch):
     assert len(controller.ignored_writes) == 1
 
 
+# -- several zones (issue #22) ---------------------------------------------------------------------
+
+def test_zones_in_use_follow_the_radio_devices(monkeypatch):
+    assert client.zones_in_use(wired(monkeypatch, sim.FakeController()).get_info()["devices"]) == (1,)
+    controller = sim.FakeController(zones=4)
+    assert client.zones_in_use(wired(monkeypatch, controller).get_info()["devices"]) == (1, 2, 3, 4)
+    # The controller (type 1) and devices without a zone (outdoor sensor: 0) don't count
+    devices = [{"type": 1, "zone": 3}, {"type": 5, "zone": 0}, {"type": 2, "zone": 9}]
+    assert client.zones_in_use(devices) == (1,)
+
+
+def test_unused_zones_answer_but_are_empty(monkeypatch):
+    zones = wired(monkeypatch, sim.FakeController()).get_zones((1, 2, 3, 4))
+    assert [zone["zone_id"] for zone in zones.values()] == [1, 2, 3, 4]
+    assert (zones[1]["name"], zones[1]["speed"]) == ("Zone 1", 1)
+    assert all((zones[n]["name"], zones[n]["speed"], zones[n]["flags"]) == ("", 0, 0) for n in (2, 3, 4))
+
+
+def test_all_zones_on_one_connection(monkeypatch):
+    controller = sim.FakeController(zones=4)
+    e16 = wired(monkeypatch, controller)
+    connections = controller.connections
+    assert list(e16.get_zones((1, 2, 3, 4))) == [1, 2, 3, 4]
+    assert controller.connections == connections + 1
+    with pytest.raises(ValueError):
+        e16.get_zones((5,))
+
+
+def test_command_for_one_zone_leaves_the_others(monkeypatch):
+    controller = sim.FakeController(zones=4)
+    e16 = wired(monkeypatch, controller)
+    zones = e16.user_override(client.CMD_ZONE_SPEED_MODE, 3, client.FAN_VENTILATION, 2, 900,
+                              zone_ids=(1, 2, 3, 4))
+    assert (zones[2]["speed"], zones[2]["mode"], zones[2]["playback"], zones[2]["timer"]) == (3, 1, 5, 900)
+    assert all((zones[n]["speed"], zones[n]["playback"]) == (1, 0) for n in (1, 3, 4))
+    zones = e16.user_override(client.CMD_ZONE_SPEED_MODE, 0, client.FAN_OFF, 3, client.FOREVER,
+                              zone_ids=(1, 2, 3, 4))
+    assert (zones[3]["speed"], zones[3]["mode"]) == (0, 0) and zones[2]["speed"] == 3
+    # Cancel for zone 3 only: zone 2 keeps running, zone 3 keeps the record of the ended command
+    zones = e16.user_override(client.CMD_CANCEL, zone=3, zone_ids=(1, 2, 3, 4))
+    assert (zones[3]["speed"], zones[3]["last_override"]["command"]) == (1, 5)
+    assert zones[2]["speed"] == 3 and 890 < zones[2]["timer"] < 900
+    # Cancel for all zones ends zone 2 as well and writes the cancel record everywhere
+    zones = e16.user_override(client.CMD_CANCEL, zone_ids=(1, 2, 3, 4))
+    assert all(zones[n]["speed"] == 1 and zones[n]["last_override"]["command"] == 7 for n in zones)
+
+
+def test_status_of_another_zone_after_a_command_is_skipped(monkeypatch):
+    # The controller sends a zone status on its own after a command. Here it is the one of zone 4,
+    # which arrives while the client reads zone 1 first.
+    controller = sim.FakeController(zones=4)
+    zones = wired(monkeypatch, controller).user_override(
+        client.CMD_ZONE_SPEED_MODE, 2, client.FAN_HEAT_RECOVERY, 4, 900, zone_ids=(1, 2, 3, 4))
+    assert [zone["zone_id"] for zone in zones.values()] == [1, 2, 3, 4]
+    assert zones[4]["speed"] == 2 and zones[1]["speed"] == 1
+
+
+def test_zone_settings_of_a_further_zone(monkeypatch):
+    controller = sim.FakeController(zones=2)
+    zones = wired(monkeypatch, controller).set_zone_field(
+        2, client.ZF_PROFILE, bytes([3]), zone_ids=(1, 2))
+    assert (zones[1]["profile"], zones[2]["profile"]) == (0, 3)
+
+
 # -- missing, late, extra and cut-off replies ------------------------------------------------------
 
 def test_late_zone_status_after_a_command(monkeypatch):
     # The zone status the controller sends after a command arrives after the client's own poll
     controller = sim.FakeController(ack_delay=2.0)
     zone = wired(monkeypatch, controller).user_override(
-        client.CMD_ZONE_SPEED_MODE, 2, client.FAN_HEAT_RECOVERY, 1, 900)
+        client.CMD_ZONE_SPEED_MODE, 2, client.FAN_HEAT_RECOVERY, 1, 900)[1]
     assert (zone["speed"], zone["timer"]) == (2, 900)
 
 

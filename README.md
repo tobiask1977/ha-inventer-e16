@@ -16,6 +16,8 @@ over your Wi-Fi, without the manufacturer's cloud.
 - **Sensors:** speed, mode, playback, timer, indoor and outdoor temperature and humidity, CO₂/VOC,
   system status and last command. Calculated: dew points, absolute humidity, and *Ventilation
   dries*, which tells whether outdoor air would actually remove moisture (useful for cellars).
+- **Zones:** on controllers with several zones, every zone becomes its own device with its own
+  fan, sensors, profile and buttons (see [Several zones](#several-zones)).
 - **Radio devices:** every fan and sensor becomes its own device with radio signal, runtime,
   temperature, humidity, battery and problem flags.
 - **Maintenance:** filter change and service with due date, days left, interval and *confirm*
@@ -82,6 +84,18 @@ Speed and mode changes are **temporary**, as in the app. The *Command duration* 
 (15 min–8 h) sets how long they last; after that the controller returns to its profile. For
 permanent changes, select another profile or edit its time program.
 
+### Several zones
+
+Every zone with fans or sensors assigned becomes its own device below the controller; zone 1
+stays on the controller device, so a single-zone installation looks as before. Each zone has its
+own fan, buttons, profile, command duration and sensors, and its commands go to that zone only.
+Outdoor values show on zone 1, indoor values on zones with an indoor sensor. When a device is
+assigned to a zone that wasn't in use, the integration reloads by itself.
+
+With a single zone, switching the fan off or on and the buttons send the app's commands for all
+zones, as before. Time programs belong to a profile, not to a zone: editing one changes every
+zone that uses that profile.
+
 ### Actions
 
 | Action | What it does |
@@ -144,10 +158,9 @@ until you switch it off.
 
 ## Limitations
 
-- **Multi-zone controllers:** the integration shows zone 1 only. Speed and mode changes affect
-  zone 1, but switching the fan on or off and the buttons *Boost 15 min*, *Pause 1 h* and *Resume
-  profile* affect all zones. Full multi-zone support is discussed in
-  [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22).
+- Support for several zones is new. It is based on tests from a four-zone installation, but has
+  not run on one yet; feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22)
+  is welcome. Devices cannot be moved to another zone.
 - Custom profiles cannot be created or renamed (their time programs can be edited).
 - Firmware cannot be installed from Home Assistant.
 - Developed on one installation with two iV14 Zero fans and an indoor and outdoor sensor. Other

@@ -13,7 +13,7 @@ from custom_components.inventer_e16.sensor import override_active
 
 
 def _fan_on(**zone):
-    return E16Fan.is_on.fget(SimpleNamespace(coordinator=SimpleNamespace(data=zone)))
+    return E16Fan.is_on.fget(SimpleNamespace(zone=zone))
 
 
 @pytest.mark.parametrize(("speed", "mode", "playback", "on"), [

@@ -15,6 +15,14 @@ Behaviour seen on real controllers:
   for a while; speed (17) and the record (74) fit at once (#1, captures in #4)
 - a time-limited command runs out with the clock; the record at 74 stays (#2)
 - after a UserOverride the controller sends its zone status (`ack_delay`, None = not at all)
+- all four zone indexes answer; unused zones with an empty name and speed 0 (`zones` = how many
+  are used). A command for one zone changes only that zone, and a cancel for one zone leaves its
+  record at 74 as it was. Cancel for all zones writes its record into every zone, and the global
+  boost keeps each zone's mode (seen on a controller with four zones, #22)
+
+Assumed, not captured: which zone the status after a command belongs to on a controller with
+several zones (here the addressed zone, zone 1 for commands to all zones), and that a global
+command writes its record into every zone.
 
 Faults to test error handling with:
 - `apply_commands=False`: a command is stored (74) but not applied
@@ -51,6 +59,7 @@ COMMAND_TO_STATUS = {HEAT_RECOVERY: STATUS_HEAT_RECOVERY, VENTILATION: STATUS_VE
                      PAUSE_CLOSED: STATUS_OFF, PAUSE_OPEN: STATUS_OFF}
 ALL_ZONES, FOREVER = 255, 0xFFFFFFFF
 CANCEL_RECORD = bytes.fromhex("070003ff00000000")
+ZONES = 4  # zone indexes 0-3 answer, higher ones don't
 
 # GlobalDataField ids
 FILTER_INTERVAL, SERVICE_INTERVAL, FILTER_LEFT, SERVICE_LEFT = 0, 1, 16384, 16385
@@ -162,14 +171,93 @@ class _Connection:
         return chunk
 
 
+class Zone:
+    """State of one zone. Zone 1 of the default controller is the one of the captures."""
+
+    def __init__(self, controller, zone_id, used):
+        self.controller = controller
+        self.zone_id, self.used = zone_id, used
+        self.name = f"Zone {zone_id}" if used else ""
+        # Speed and mode while no command is active
+        self.schedule = (1, STATUS_HEAT_RECOVERY) if used else (0, STATUS_OFF)
+        self.speed, self.mode = self.schedule
+        self.profile = 0
+        self.comfort = [20.0, 16.0, 70.0, 1500.0, 3.0]
+        self.sensors = [-math.inf] * 6  # outdoor T/RH, indoor T/RH, CO2, VOC
+        self.system_status = 0
+        self.record = CANCEL_RECORD
+        self.global_command = False
+        self.ends = None  # simulated time at which the running command ends
+        self._playback, self._lag = PLAY, None
+
+    def advance(self):
+        if self.ends is not None and self.controller.now >= self.ends:
+            # A time-limited command ran out: back to the schedule, the record stays (#2)
+            self.ends = None
+            self.speed, self.mode = self.schedule
+            self.global_command = False
+            self._playback, self._lag = PLAY, None
+
+    @property
+    def playback(self):
+        if self._lag and self.controller.now < self._lag[0]:
+            return self._lag[1]
+        return self._playback
+
+    def _set_playback(self, value, while_lagging=None):
+        shown = self.playback if while_lagging is None else while_lagging
+        self._playback = value
+        lagging = self.controller.playback_lag and shown != value
+        self._lag = (self.controller.now + self.controller.playback_lag, shown) if lagging else None
+
+    @property
+    def timer(self):
+        now = self.controller.now
+        return 0 if self.ends is None else max(0, math.ceil(self.ends - now - 1e-6))
+
+    def row(self):
+        """ZoneViewRow V5 - 85 bytes like the captured replies."""
+        flags = FAN_UNIT | HAS_DEVICES if self.used else 0
+        flags |= (TIMER_ACTIVE if self.timer else 0) | (GLOBAL_COMMAND if self.global_command else 0)
+        row = bytes([self.zone_id]) + self.name.encode().ljust(16, b"\0")
+        row += struct.pack("<BBIBBB", self.speed, self.playback, self.timer, flags, self.mode,
+                           self.profile)
+        row += struct.pack("<5f", *self.comfort) + struct.pack("<6f", *self.sensors)
+        return row + struct.pack("<I", self.system_status) + self.record + bytes(3)
+
+    def apply(self, command, speed, mode, duration):
+        now = self.controller.now
+        timed = duration not in (0, FOREVER)
+        if command == CANCEL:
+            self.ends, self.global_command = None, False
+            self.speed, self.mode = self.schedule
+            self._set_playback(PLAY)
+        elif command == GLOBAL_PAUSE:
+            self.ends, self.global_command = (now + duration if timed else None), True
+            self.speed, self.mode = 0, STATUS_OFF
+            self._set_playback(SHUT_DOWN, while_lagging=PAUSE)
+        elif command == GLOBAL_BOOST:
+            self.ends, self.global_command = (now + duration if timed else None), True
+            self.speed = speed  # the mode stays (#22)
+            self._set_playback(BOOST)
+        elif command == ZONE_SPEED_MODE:
+            self.ends, self.global_command = (now + duration if timed else None), False
+            self.speed, self.mode = speed, COMMAND_TO_STATUS.get(mode, STATUS_OFF)
+            self._playback, self._lag = OVERRIDE, None  # an override shows at once (captures)
+        # Other commands (zone boost/pause/profile, fans off) are defined but not modelled
+
+
 class FakeController:
-    """One controller with zone 1, four fans and no sensors, as in the captures.
+    """One controller with four fans in zone 1 and no sensors, as in the captures; with `zones`
+    > 1, two fans in zone 1 and one in each further zone.
 
     Install `connect` as the client's `_connect` and `advance` as `time.sleep`; the attributes
-    (speed, profile, fields, programs, devices, ...) can be set directly to prepare a test.
+    (fields, programs, devices, and the zone state in `zones[zone_id]`) can be set directly to
+    prepare a test.
     """
 
-    def __init__(self, playback_lag=0.0, ack_delay=0.0, apply_commands=True, store_programs=True):
+    def __init__(self, playback_lag=0.0, ack_delay=0.0, apply_commands=True, store_programs=True,
+                 zones=1):
         self.playback_lag = playback_lag
         self.ack_delay = ack_delay
         self.apply_commands = apply_commands
@@ -183,18 +271,7 @@ class FakeController:
         self.replies = []  # every reply packet sent, after mutation
         self.ignored_writes = []  # (type, field id or entry, value) the controller did not take
 
-        # Zone 1 as in the captures: default profile, four fans, no sensors
-        self.zone_id, self.zone_name = 1, "Zone 1"
-        self.schedule = (1, STATUS_HEAT_RECOVERY)  # speed and mode while no command is active
-        self.speed, self.mode = self.schedule
-        self.profile = 0
-        self.comfort = [20.0, 16.0, 70.0, 1500.0, 3.0]
-        self.sensors = [-math.inf] * 6  # outdoor T/RH, indoor T/RH, CO2, VOC
-        self.system_status = 0
-        self.record = CANCEL_RECORD
-        self.global_command = False
-        self.ends = None  # simulated time at which the running command ends
-        self._playback, self._lag = PLAY, None
+        self.zones = {n: Zone(self, n, n <= zones) for n in range(1, ZONES + 1)}
 
         self.fields = {FILTER_INTERVAL: b"\x06", SERVICE_INTERVAL: b"\x06",
                        FILTER_LEFT: struct.pack("<f", 6.0), SERVICE_LEFT: struct.pack("<f", 6.0),
@@ -202,8 +279,9 @@ class FakeController:
                        FAN_LEVEL_1 + 3: b"\x64", REVERSAL_INTERVAL: struct.pack("<H", 70),
                        DEFAULT_MODE: b"\x01", DEFAULT_SPEED: b"\x01"}
         self.programs = {}  # (table, entry) -> 8-byte record; missing = empty
+        fan_zones = [1, 1, 1, 1] if zones == 1 else [1, 1, *range(2, zones + 1)]
         self.devices = [device_row(0, 1, 1, "Controller", 5030010, polarity=0)] + [
-            device_row(n, 2, 2, f"Fan {n}", 5030009) for n in range(1, 5)]
+            device_row(n, 2, 2, f"Fan {n}", 5030009, zone=zone) for n, zone in enumerate(fan_zones, 1)]
         self.wifi_rssi = -60
         self.firmware_images = [(255, 1, 1003011, 0x12345678)]  # index, valid, version, crc
 
@@ -216,12 +294,8 @@ class FakeController:
     # -- clock and faults ------------------------------------------------------------------------
     def advance(self, seconds):
         self.now += seconds
-        if self.ends is not None and self.now >= self.ends:
-            # A time-limited command ran out: back to the schedule, the record stays (#2)
-            self.ends = None
-            self.speed, self.mode = self.schedule
-            self.global_command = False
-            self._playback, self._lag = PLAY, None
+        for zone in self.zones.values():
+            zone.advance()
 
     def drop_replies(self, count=1):
         """The next `count` requests get no reply."""
@@ -253,56 +327,22 @@ class FakeController:
             connection.open = False
 
     # -- state -----------------------------------------------------------------------------------
-    @property
-    def playback(self):
-        if self._lag and self.now < self._lag[0]:
-            return self._lag[1]
-        return self._playback
-
-    def _set_playback(self, value, while_lagging=None):
-        shown = self.playback if while_lagging is None else while_lagging
-        self._playback = value
-        lagging = self.playback_lag and shown != value
-        self._lag = (self.now + self.playback_lag, shown) if lagging else None
-
-    @property
-    def timer(self):
-        return 0 if self.ends is None else max(0, math.ceil(self.ends - self.now - 1e-6))
-
-    def zone_row(self):
-        """ZoneViewRow V5 of zone 1 - 85 bytes like the captured replies."""
-        flags = FAN_UNIT | HAS_DEVICES | (TIMER_ACTIVE if self.timer else 0)
-        flags |= GLOBAL_COMMAND if self.global_command else 0
-        row = bytes([self.zone_id]) + self.zone_name.encode().ljust(16, b"\0")
-        row += struct.pack("<BBIBBB", self.speed, self.playback, self.timer, flags, self.mode,
-                           self.profile)
-        row += struct.pack("<5f", *self.comfort) + struct.pack("<6f", *self.sensors)
-        return row + struct.pack("<I", self.system_status) + self.record + bytes(3)
-
     def command(self, record):
         """Apply an 8-byte UserOverride record, as if it came from the client or the app."""
         command, speed, mode, zone, duration = struct.unpack("<BBBBI", record)
-        self.record = bytes(record)
-        if not self.apply_commands:
-            return
-        timed = duration not in (0, FOREVER)
-        if command == CANCEL:
-            self.ends, self.global_command = None, False
-            self.speed, self.mode = self.schedule
-            self._set_playback(PLAY)
-        elif command == GLOBAL_PAUSE:
-            self.ends, self.global_command = (self.now + duration if timed else None), True
-            self.speed, self.mode = 0, STATUS_OFF
-            self._set_playback(SHUT_DOWN, while_lagging=PAUSE)
-        elif command == GLOBAL_BOOST:  # from protocol.md, not captured
-            self.ends, self.global_command = (self.now + duration if timed else None), True
-            self.speed, self.mode = speed, COMMAND_TO_STATUS.get(mode, STATUS_OFF)
-            self._set_playback(BOOST)
-        elif command == ZONE_SPEED_MODE and zone in (self.zone_id, ALL_ZONES):
-            self.ends, self.global_command = (self.now + duration if timed else None), False
-            self.speed, self.mode = speed, COMMAND_TO_STATUS.get(mode, STATUS_OFF)
-            self._playback, self._lag = OVERRIDE, None  # an override shows at once (captures)
-        # Other commands (zone boost/pause/profile, fans off) are defined but not modelled
+        if command in (GLOBAL_BOOST, GLOBAL_PAUSE):
+            zone = ALL_ZONES
+        targets = [z for z in self.zones.values() if z.used and zone in (z.zone_id, ALL_ZONES)]
+        for target in targets:
+            # A cancel for one zone leaves that zone's record as it was (#22)
+            if command != CANCEL or zone == ALL_ZONES:
+                target.record = bytes(record)
+            if self.apply_commands:
+                target.apply(command, speed, mode, duration)
+
+    def _used_zone(self, zone_id):
+        zone = self.zones.get(zone_id)
+        return zone if zone and zone.used else None
 
     # -- packets ---------------------------------------------------------------------------------
     def _receive(self, connection, packet):
@@ -337,7 +377,7 @@ class FakeController:
     def _answer(self, ptype, payload):
         if ptype == ZONE_VIEW:
             assert len(payload) == 1, "zone status request is one index byte"
-            return self.zone_row() if payload[0] == 0 else None
+            return self.zones[payload[0] + 1].row() if payload[0] < ZONES else None
         if ptype in (GLOBAL_FIELD, ZONE_FIELD):
             field_id = self._unwrap(payload, read=True)[0]
             value = self._read_field(ptype, field_id)
@@ -363,7 +403,8 @@ class FakeController:
             assert (magic, kind, size, len(payload)) == (DOA_MAGIC, DOA_RAW, 8, 12), "bad UserOverride"
             self.command(payload[4:12])
             if self.ack_delay is not None:
-                connection.queue(reply_packet(ZONE_VIEW, self.zone_row()), self.ack_delay)
+                zone = self._used_zone(payload[7]) or self.zones[1]
+                connection.queue(reply_packet(ZONE_VIEW, zone.row()), self.ack_delay)
         elif ptype == TIME_PROGRAM:
             table, entry, record = self._program(payload, size=13)
             if self.store_programs:
@@ -396,13 +437,14 @@ class FakeController:
         if ptype == GLOBAL_FIELD:
             return b"" if field_id in self.missing_fields else self.fields.get(field_id, b"")
         zone, field = divmod(field_id, 65536)
-        if zone != self.zone_id:
+        zone = self._used_zone(zone)
+        if zone is None:
             return b""
         if field == 0:
-            return self.zone_name.encode().ljust(16, b"\0")
+            return zone.name.encode().ljust(16, b"\0")
         if field == 1:
-            return bytes([self.profile])
-        return struct.pack("<f", self.comfort[field - 2]) if 2 <= field <= 6 else b""
+            return bytes([zone.profile])
+        return struct.pack("<f", zone.comfort[field - 2]) if 2 <= field <= 6 else b""
 
     def _write_field(self, ptype, field_id, value):
         if ptype == GLOBAL_FIELD:
@@ -418,12 +460,13 @@ class FakeController:
             self.fields[field_id] = value
             return True
         zone, field = divmod(field_id, 65536)
-        if zone != self.zone_id:
+        zone = self._used_zone(zone)
+        if zone is None:
             return False
         if field == 1 and len(value) == 1:
-            self.profile = value[0]
+            zone.profile = value[0]
         elif 2 <= field <= 6 and len(value) == 4:
-            self.comfort[field - 2] = struct.unpack("<f", value)[0]
+            zone.comfort[field - 2] = struct.unpack("<f", value)[0]
         else:
             return False
         return True

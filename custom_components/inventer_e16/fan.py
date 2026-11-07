@@ -54,7 +54,8 @@ def program_response(profile, entries):
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    async_add_entities([E16Fan(entry.runtime_data.zone, entry, "fan")])
+    zones = entry.runtime_data.zone
+    async_add_entities([E16Fan(zones, entry, "fan", zone_id=zone_id) for zone_id in zones.zone_ids])
     entity_platform.async_get_current_platform().async_register_entity_service(
         "set_mode",
         {
@@ -102,25 +103,25 @@ class E16Fan(E16Entity, FanEntity):
     def is_on(self):
         # Not from playback: after a command it often lags behind for a poll or longer, while
         # fan speed already fits (pause and global pause report speed 0) - issue #1
-        data = self.coordinator.data
+        data = self.zone
         return data["mode"] != 0 and data["speed"] > 0
 
     @property
     def percentage(self):
-        return self.coordinator.data["speed"] * 100 // SPEEDS if self.is_on else 0
+        return self.zone["speed"] * 100 // SPEEDS if self.is_on else 0
 
     @property
     def preset_mode(self):
-        return READ_MODE_TO_PRESET.get(self.coordinator.data["mode"])
+        return READ_MODE_TO_PRESET.get(self.zone["mode"])
 
     async def _speed_mode(self, speed=None, preset=None):
-        data = self.coordinator.data
+        data = self.zone
         speed = speed or max(data["speed"], 1)
         mode = PRESET_TO_FAN.get(preset) or client.READ_MODE_TO_FAN.get(
             data["mode"], client.FAN_HEAT_RECOVERY)
         await self.coordinator.async_override(
-            client.CMD_ZONE_SPEED_MODE, speed, mode, data["zone_id"],
-            self.coordinator.override_minutes * 60)
+            client.CMD_ZONE_SPEED_MODE, speed, mode, self.zone_id,
+            self.coordinator.minutes(self.zone_id) * 60)
 
     async def async_set_percentage(self, percentage):
         if percentage == 0:
@@ -137,15 +138,15 @@ class E16Fan(E16Entity, FanEntity):
             await self._speed_mode(speed=speed, preset=preset_mode)
         else:
             # App power button "on": cancel, the controller returns to its profile
-            await self.coordinator.async_override(client.CMD_CANCEL)
+            await self.coordinator.async_resume(self.zone_id)
 
     async def async_turn_off(self, **kwargs):
-        # App power button "off": global pause without end
-        await self.coordinator.async_override(client.CMD_GLOBAL_PAUSE, duration=client.FOREVER)
+        # App power button "off": pause without end
+        await self.coordinator.async_pause(self.zone_id, client.FOREVER)
 
     async def async_get_time_program(self, profile=None):
         """Read only. Default: the zone's current profile."""
-        value = PROGRAM_PROFILES[profile] if profile else self.coordinator.data["profile"]
+        value = PROGRAM_PROFILES[profile] if profile else self.zone["profile"]
         if value not in client.PROGRAM_PROFILES:
             raise ServiceValidationError(
                 f"Profile {value} has no time program (only profiles 1-15 have one)")
@@ -179,6 +180,6 @@ class E16Fan(E16Entity, FanEntity):
         if fan_mode in (client.FAN_OFF, client.FAN_STOP):
             speed = 0
         await self.coordinator.async_override(
-            client.CMD_ZONE_SPEED_MODE, speed, fan_mode, self.coordinator.data["zone_id"],
-            (minutes or self.coordinator.override_minutes) * 60)
+            client.CMD_ZONE_SPEED_MODE, speed, fan_mode, self.zone_id,
+            (minutes or self.coordinator.minutes(self.zone_id)) * 60)
 
