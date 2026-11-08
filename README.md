@@ -13,13 +13,15 @@ over your Wi-Fi, without the manufacturer's cloud.
   *Boost 15 min*, *Pause 1 h* and *Resume profile*.
 - **Profiles:** select the ventilation profile and set its comfort values (indoor and outdoor
   comfort temperature, humidity threshold, CO₂/VOC threshold if such a sensor is installed).
+  Custom profiles can be selected once they have a time program.
 - **Sensors:** speed, mode, playback, timer, indoor and outdoor temperature and humidity, CO₂/VOC,
   system status and last command. Calculated: dew points, absolute humidity, and *Ventilation
   dries*, which tells whether outdoor air would actually remove moisture (useful for cellars).
 - **Zones:** on controllers with several zones, every zone becomes its own device with its own
   fan, sensors, profile and buttons (see [Several zones](#several-zones)).
 - **Radio devices:** every fan and sensor becomes its own device with radio signal, runtime,
-  temperature, humidity, battery and problem flags.
+  temperature, humidity, battery and problem flags. Fans also show their polarity (whether they
+  start with supply or extract air).
 - **Maintenance:** filter change and service with due date, days left, interval and *confirm*
   buttons.
 - **Firmware:** update entities for the Wi-Fi module, controller, fans and sensors. Installing
@@ -91,12 +93,13 @@ device below the controller. Each zone has its own fan, buttons, profile, comman
 sensors, and its commands go to that zone only. The fans of a zone always run together, so there
 are no controls for single fans. The controller device, then named *inVENTer Easy Connect e16*,
 keeps what applies to all zones: filter and service, firmware, Wi-Fi, alarms and the outdoor
-values. Indoor values show on zones with an indoor sensor.
+values. Zone 1 always has the indoor values; zones 2–4 only with an indoor sensor of their own.
 
 - With a single zone, the controller device carries the zone, and switching the fan off or on
   and the buttons send the app's commands for all zones, as before.
 - When a second zone comes into use, zone 1's entities move to the new zone 1 device. They keep
-  their entity IDs, and the zone 1 device takes over the controller's area.
+  their entity IDs, and the zone 1 device takes over the controller's area. A name you gave the
+  controller device stays with the controller.
 - While a pause or boost for all zones is running (for example started in the app), switching a
   zone on or *Resume profile* ends it in all zones.
 - Time programs belong to a profile, not to a zone: editing one changes every zone that uses
@@ -166,10 +169,14 @@ until you switch it off.
 
 ## Limitations
 
-- Support for several zones is new and has been confirmed on one three-zone installation so far;
+- Support for several zones has been confirmed on two installations with three and four zones;
   feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22) is welcome. Devices
   cannot be moved to another zone.
-- Custom profiles cannot be created or renamed (their time programs can be edited).
+- Custom profiles cannot be created or renamed (their time programs can be edited). Which ones
+  have a time program is read once a day and after a change through the actions, so a program
+  created in the app can take up to a day to show up. Reading takes up to a few seconds per
+  profile; polls and commands wait for it.
+- The polarity of a fan can't be changed yet.
 - Firmware cannot be installed from Home Assistant.
 - Developed on one installation with two iV14 Zero fans and an indoor and outdoor sensor. Other
   fans on the e16 should work, but this hasn't been confirmed.

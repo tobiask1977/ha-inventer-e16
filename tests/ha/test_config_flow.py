@@ -143,6 +143,7 @@ async def test_recorded_discovery_key_does_not_reload(hass):
     data = MagicMock()
     data.zone.async_config_entry_first_refresh = AsyncMock()
     data.info.async_config_entry_first_refresh = AsyncMock()
+    data.zone.async_check_custom_profiles = AsyncMock()
     with patch("custom_components.inventer_e16.coordinator.create", return_value=data) as create, \
             patch.object(hass.config_entries, "async_forward_entry_setups", AsyncMock()):
         assert await hass.config_entries.async_setup(entry.entry_id)

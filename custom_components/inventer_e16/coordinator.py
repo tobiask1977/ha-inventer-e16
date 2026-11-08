@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .client import (CMD_CANCEL, CMD_GLOBAL_BOOST, CMD_GLOBAL_PAUSE, CMD_ZONE_SPEED_MODE,
-                     FAN_HEAT_RECOVERY, FAN_OFF, FAN_VENTILATION, READ_MODE_TO_FAN,
+                     CUSTOM_PROFILES, FAN_HEAT_RECOVERY, FAN_OFF, FAN_VENTILATION, READ_MODE_TO_FAN,
                      ZONE_FLAG_GLOBAL_COMMAND, ZONE_GLOBAL, E16AuthError, E16Client)
 from .const import (CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
                     DEFAULT_FIRMWARE_CATALOG, DEFAULT_SCAN_INTERVAL)
@@ -24,6 +24,9 @@ LOGGER = logging.getLogger(__package__)
 CATALOG_INTERVAL = timedelta(hours=24)
 # Duration of speed/mode commands until the user sets one; the app offers 15 min to 8 h
 DEFAULT_OVERRIDE_MINUTES = 60
+# Which custom profiles have a time program: read once a day, after an error again 10 min later
+CUSTOM_PROFILE_INTERVAL = timedelta(hours=24)
+CUSTOM_PROFILE_RETRY = timedelta(minutes=10)
 
 
 @dataclass
@@ -50,6 +53,12 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
         self.zone_ids = (1,)
         # Duration of speed/mode commands per zone, in minutes
         self.override_minutes = {}
+        # Custom profiles with a time program: the profile select offers them
+        self.custom_profiles = set()
+        self._unchecked = set()
+        self._checked_at = None
+        self._checking = False
+        self._check_failed = False
 
     @property
     def multi_zone(self):
@@ -101,6 +110,42 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
             await self.async_override(CMD_ZONE_SPEED_MODE, 4, mode, zone_id, duration)
         else:
             await self.async_override(CMD_GLOBAL_BOOST, 4, FAN_VENTILATION, ZONE_GLOBAL, duration)
+
+    async def async_check_custom_profiles(self, profiles=None):
+        """Read which custom profiles have a time program: all of them after setup and once a day,
+        `profiles` after a program change. Runs in the background, called every 10 min.
+
+        An empty profile takes 32 requests (about 4 s), and polls and commands wait for the
+        connection, so every profile gets a connection of its own. After an error the remaining
+        profiles keep their last result and are read on the next call."""
+        now = dt_util.utcnow()
+        if profiles is not None:
+            self._unchecked |= set(profiles)
+        elif self._checked_at is None or now - self._checked_at >= CUSTOM_PROFILE_INTERVAL:
+            self._unchecked, self._checked_at = set(CUSTOM_PROFILES), now
+        if self._checking:
+            return  # the running check reads the added profiles too
+        self._checking = True
+        try:
+            while self._unchecked:
+                profile = min(self._unchecked)
+                try:
+                    found = await self.hass.async_add_executor_job(
+                        self.client.profiles_with_program, (profile,))
+                except (E16AuthError, OSError, ValueError) as error:
+                    if not self._check_failed:
+                        LOGGER.info("Reading the time programs of the custom profiles failed, "
+                                    "retrying in 10 minutes: %s", error)
+                    self._check_failed = True
+                    return
+                self._check_failed = False
+                self._unchecked.discard(profile)
+                custom_profiles = (self.custom_profiles - {profile}) | set(found)
+                if custom_profiles != self.custom_profiles:
+                    self.custom_profiles = custom_profiles
+                    self.async_update_listeners()
+        finally:
+            self._checking = False
 
     async def async_set_zone_field(self, zone_id, field_id, raw):
         await self._async_command(self.client.set_zone_field, zone_id, field_id, raw, self.zone_ids)

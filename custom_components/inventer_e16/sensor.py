@@ -8,7 +8,7 @@ from homeassistant.const import (PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
                                  UnitOfDensity, UnitOfRatio, UnitOfTemperature, UnitOfTime)
 from homeassistant.util import dt as dt_util
 
-from .client import FOREVER
+from .client import FAN_DEVICE_TYPES, FOREVER, POLARITY_EXTRACT, POLARITY_SUPPLY
 from .entity import E16Entity, zone_has
 from .humidity import absolute_humidity, dew_point
 
@@ -18,6 +18,7 @@ MODES = {0: "off", 1: "ventilation", 2: "heat_recovery"}
 COMMANDS = {0: "none", 1: "global_boost", 2: "global_pause", 3: "zone_boost", 4: "zone_pause",
             5: "zone_speed_mode", 6: "zone_profile", 7: "cancel", 8: "fan_off", 9: "fan_off_cancel"}
 NOT_ACTIVE = {0, 7, 9}
+POLARITIES = {POLARITY_SUPPLY: "supply", POLARITY_EXTRACT: "extract"}
 ZONE_SENSORS = (
     ("speed", None, None),
     ("playback", SensorDeviceClass.ENUM, None),
@@ -77,6 +78,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
             entities.append(E16RuntimeSensor(data.info, entry, "runtime", device))
         if device["battery"] is not None:
             entities.append(E16Battery(data.info, entry, "battery", device))
+        if device["type"] in FAN_DEVICE_TYPES:
+            entities.append(E16Polarity(data.info, entry, "polarity", device))
         if device["type"] in SENSOR_DEVICE_TYPES:
             entities += [E16DeviceMeasurement(data.info, entry, "temperature", device),
                          E16DeviceMeasurement(data.info, entry, "humidity", device)]
@@ -228,6 +231,18 @@ class E16Battery(E16Entity, SensorEntity):
     def native_value(self):
         row = self.device_row()
         return row["battery"] if row else None
+
+
+class E16Polarity(E16Entity, SensorEntity):
+    """Direction a fan unit starts in; the two fans of a pair start in opposite directions."""
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(POLARITIES.values())
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self):
+        row = self.device_row()
+        return POLARITIES.get(row["polarity"]) if row else None
 
 
 class E16ClimateSensor(E16Entity, SensorEntity):

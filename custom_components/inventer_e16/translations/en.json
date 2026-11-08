@@ -286,6 +286,13 @@
       "battery": {
         "name": "Battery"
       },
+      "polarity": {
+        "name": "Polarity",
+        "state": {
+          "supply": "Supply",
+          "extract": "Extract"
+        }
+      },
       "dew_point_inside": {
         "name": "Dew point indoor"
       },

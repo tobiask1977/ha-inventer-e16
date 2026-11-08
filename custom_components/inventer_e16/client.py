@@ -67,6 +67,8 @@ ZF_COMFORT_ROOM, ZF_COMFORT_OUTSIDE, ZF_RH_THRESHOLD, ZF_CO2_THRESHOLD, ZF_VOC_T
 # Only these ids are ever sent: table and entry 65535 address the whole store, and an update with
 # them resets all time programs.
 PROGRAM_PROFILES = range(1, 16)
+# The app's custom profiles 1-9
+CUSTOM_PROFILES = range(7, 16)
 PROGRAM_ENTRIES = 32
 PROGRAM_TYPE_FAN = 1
 
@@ -78,6 +80,9 @@ DEV_SERVICE_DUE, DEV_FILTER_DUE, DEV_SERVICE_OVER, DEV_FILTER_OVER = 8192, 16384
 SYS_BATTERY_CRITICAL, SYS_ALARM, SYS_FILTER_TIMEOUT, SYS_SERVICE_TIMEOUT = 16, 32, 64, 128
 # Device types whose row carries a battery level at offset 41 (T/RH sensors, battery SSU)
 BATTERY_DEVICE_TYPES = {4, 5, 12}
+# Fan units carry their polarity at offset 41: the direction they start in, 0 = supply, 1 = extract
+FAN_DEVICE_TYPES = {2, 3}
+POLARITY_SUPPLY, POLARITY_EXTRACT = 0, 1
 # A controller has a handful of radio devices; cap what a (faulty) reply can make us query
 MAX_DEVICES = 32
 # Zone ids 1-4 (ZoneViewRow index = id - 1). Every controller answers all four, used or not.
@@ -238,6 +243,8 @@ def parse_device(data):
         "name": data[13:29].split(b"\0")[0].decode("utf-8", "replace").strip(),
         "temperature": _finite(temperature), "humidity": _finite(humidity), "runtime": runtime,
         "battery": _finite(battery) if device_type in BATTERY_DEVICE_TYPES else None,
+        "polarity": data[41] if device_type in FAN_DEVICE_TYPES
+        and data[41] in (POLARITY_SUPPLY, POLARITY_EXTRACT) else None,
     }
 
 
@@ -380,6 +387,13 @@ class E16Client:
         """All 32 entries of a profile's time program, None for empty ones."""
         with self._connect() as connection, _malformed_as_value_error():
             return [self._program_entry(connection, profile, entry) for entry in range(PROGRAM_ENTRIES)]
+
+    def profiles_with_program(self, profiles):
+        """The profiles whose time program has an entry. Reading stops at a profile's first entry,
+        but an empty profile takes all 32 requests."""
+        with self._connect() as connection, _malformed_as_value_error():
+            return [profile for profile in profiles if any(
+                self._program_entry(connection, profile, entry) for entry in range(PROGRAM_ENTRIES))]
 
     def set_time_program_entry(self, profile, entry, record=None):
         """Write one entry (record from program_record, None deletes it) and read it back - the

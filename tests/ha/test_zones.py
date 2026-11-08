@@ -4,6 +4,7 @@
 devices, and which command each entity sends with one zone and with several (issue #22)."""
 import importlib.util
 from pathlib import Path
+from datetime import timedelta
 import struct
 import time
 from types import SimpleNamespace
@@ -11,7 +12,9 @@ from types import SimpleNamespace
 import pytest
 
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.core import State
+from pytest_homeassistant_custom_component.common import (MockConfigEntry, async_fire_time_changed,
+                                                          mock_restore_cache)
 
 from custom_components.inventer_e16 import client
 from custom_components.inventer_e16.const import DOMAIN
@@ -240,3 +243,89 @@ async def test_diagnostics_contain_every_zone(hass, monkeypatch, zones):
     result = await async_get_config_entry_diagnostics(hass, entry)
     assert list(result["zones"]) == list(range(1, zones + 1))
     assert result["entry"]["psk"] == "**REDACTED**"
+
+
+def _options(hass, unique_id):
+    return hass.states.get(_entity(hass, "select", unique_id)).attributes["options"]
+
+
+async def test_custom_profiles_with_a_time_program_can_be_selected(hass, monkeypatch, freezer):
+    controller = sim.FakeController(zones=2)
+    # Custom profile 3 (profile 9, table 8) has a time program, the others are empty
+    controller.programs[(8, 5)] = client.program_record(8 * 3600, 127, client.FAN_VENTILATION, 2)
+    entry = await _setup(hass, monkeypatch, controller)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    for unique_id in ("profile", "zone2_profile"):
+        assert "custom_3" in _options(hass, unique_id) and "custom_1" not in _options(hass, unique_id)
+    # One connection per profile: polls and commands only wait for one profile, not for all nine
+    connections = controller.connections
+    await entry.runtime_data.zone.async_check_custom_profiles(client.CUSTOM_PROFILES)
+    assert controller.connections - connections == 9
+    await _call(hass, "select", "select_option", _entity(hass, "select", "zone2_profile"), option="custom_3")
+    assert controller.zones[2].profile == 9
+    # A program written or deleted through the services shows or hides the profile
+    fan = _entity(hass, "fan", "fan")
+    await _call(hass, DOMAIN, "set_time_program_entry", fan, profile="custom_1", entry=0, time="07:30",
+                days=["monday"], mode="ventilation", speed=2)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert "custom_1" in _options(hass, "profile")
+    await _call(hass, DOMAIN, "delete_time_program_entry", fan, profile="custom_1", entry=0)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert "custom_1" not in _options(hass, "profile")
+    # A program from the app shows up with the daily check, not with the checks in between
+    controller.programs[(14, 31)] = client.program_record(0, 1, client.FAN_HEAT_RECOVERY, 1)
+    freezer.tick(timedelta(minutes=10, seconds=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert "custom_9" not in _options(hass, "profile")
+    freezer.tick(timedelta(days=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert "custom_9" in _options(hass, "profile")
+
+
+async def test_profile_options_follow_the_profile_numbers(hass, monkeypatch):
+    controller = sim.FakeController()
+    controller.zones[1].profile = 7  # custom 1 is active but has no program
+    controller.programs[(7, 0)] = client.program_record(0, 127, client.FAN_HEAT_RECOVERY, 1)
+    await _setup(hass, monkeypatch, controller)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    options = _options(hass, "profile")
+    assert options[options.index("holiday"):options.index("summer") + 1] == [
+        "holiday", "custom_1", "custom_2", "summer"]
+    assert hass.states.get(_entity(hass, "select", "profile")).state == "custom_1"
+
+
+async def test_custom_profiles_survive_a_restart_and_a_failed_read(hass, monkeypatch, freezer, caplog):
+    # Offered before the restart: custom 4. On the controller only custom 3 has a program.
+    mock_restore_cache(hass, [State("select.inventer_zone_1_ventilation_profile", "default",
+                                    {"options": ["default", "custom_4", "summer"]})])
+    controller = sim.FakeController()
+    controller.programs[(8, 0)] = client.program_record(0, 127, client.FAN_HEAT_RECOVERY, 1)
+    read = client.E16Client.profiles_with_program
+    calls = []
+
+    def first_read_fails(self, profiles):
+        calls.append(profiles)
+        if len(calls) == 1:
+            raise TimeoutError("no reply")
+        return read(self, profiles)
+
+    monkeypatch.setattr(client.E16Client, "profiles_with_program", first_read_fails)
+    await _setup(hass, monkeypatch, controller)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert "custom_4" in _options(hass, "profile") and "custom_3" not in _options(hass, "profile")
+    assert "retrying in 10 minutes" in caplog.text
+    freezer.tick(timedelta(minutes=10, seconds=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert "custom_3" in _options(hass, "profile") and "custom_4" not in _options(hass, "profile")
+
+
+async def test_fan_units_show_their_polarity(hass, monkeypatch):
+    controller = sim.FakeController()
+    controller.devices[2] = sim.device_row(2, 2, 2, "Fan 2", 5030009, polarity=0)
+    await _setup(hass, monkeypatch, controller)
+    assert hass.states.get(_entity(hass, "sensor", "1_polarity")).state == "extract"
+    assert hass.states.get(_entity(hass, "sensor", "2_polarity")).state == "supply"
+    assert er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{DEVICE_ID}_0_polarity") is None

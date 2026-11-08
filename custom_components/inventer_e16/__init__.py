@@ -4,6 +4,7 @@
 from homeassistant.const import Platform
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.event import async_track_time_interval
 
 from . import coordinator
 from .client import zones_in_use
@@ -75,6 +76,15 @@ async def async_setup_entry(hass, entry):
 
     entry.async_on_unload(data.info.async_add_listener(reload_on_new_layout))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    @callback
+    def check_custom_profiles(_now=None):
+        entry.async_create_background_task(
+            hass, data.zone.async_check_custom_profiles(), "inventer_e16 custom profiles")
+
+    check_custom_profiles()
+    entry.async_on_unload(async_track_time_interval(
+        hass, check_custom_profiles, coordinator.CUSTOM_PROFILE_RETRY))
     # No update listener: it would reload on every entry change, even when Home Assistant only
     # records a DHCP discovery key. Options reload via OptionsFlowWithReload, flows via their abort.
     return True

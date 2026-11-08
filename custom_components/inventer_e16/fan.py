@@ -166,6 +166,11 @@ class E16Fan(E16Entity, FanEntity):
             raise HomeAssistantError(f"Writing the time program failed: {error}") from error
         # The entry may change what the current profile does right now
         await self.coordinator.async_request_refresh()
+        if (value := PROGRAM_PROFILES[profile]) in client.CUSTOM_PROFILES:
+            # Whether the profile select offers it
+            self.coordinator.config_entry.async_create_background_task(
+                self.hass, self.coordinator.async_check_custom_profiles((value,)),
+                "inventer_e16 custom profile")
         return stored
 
     async def async_set_time_program_entry(self, profile, entry, time, days, mode, speed=1):
