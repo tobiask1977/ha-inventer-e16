@@ -12,7 +12,8 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
 | `custom_components/inventer_e16/coordinator.py` | Polling: zones in use every 30 s (option), maintenance/firmware/radio devices every 10 min, vendor catalog daily |
 | `custom_components/inventer_e16/<platform>.py` | Entities (sensor, binary_sensor, fan, button, number, select, update) |
 | `custom_components/inventer_e16/strings.json`, `translations/` | Entity names and states (English, German) |
-| `tests/test_client.py`, `tests/simulator.py` | Protocol tests with anonymised real replies, simulated controller (`pytest tests`) |
+| `tests/test_client.py`, `tests/simulator.py` | Protocol tests with anonymised real replies, simulated controller (`pytest tests --ignore=tests/ha`) |
+| `tests/ha/` | The integration in Home Assistant, against the simulated controller (`pytest tests/ha`) |
 | `tools/e16_onboard.py` | BLE tool to read device ID and PSK |
 | `docs/protocol.md`, `docs/onboarding.md` | Protocol reference, pairing guide |
 
@@ -44,7 +45,28 @@ Read [README.md](README.md) and [docs/protocol.md](docs/protocol.md) before chan
 
 ## Before a release
 
-- `pytest tests --ignore=tests/ha` passes; CI (tests, ha-tests, hassfest, HACS) is green.
+- `pytest tests --ignore=tests/ha` and `pytest tests/ha` pass; CI (tests, ha-tests, hassfest,
+  HACS) is green.
 - Bump `version` in `manifest.json` and add a `CHANGELOG.md` entry.
 - If possible, import all platforms against the targeted Home Assistant version in a venv
   (`pip install homeassistant==<version>`) and evaluate the entities with sample data.
+- Changes that could not run on a real controller yet go out as a pre-release (`0.4.0b1`) first.
+  The stable release follows once testers have confirmed them.
+
+## Regular maintenance
+
+Runs by itself:
+
+- CI runs every Monday at 04:00 UTC against the latest Home Assistant
+  (`pytest-homeassistant-custom-component` is not pinned). A red Monday run without a new commit
+  usually means a change in Home Assistant.
+- Dependabot proposes updates of the GitHub Actions once a month.
+
+Needs a person:
+
+| When | What |
+|---|---|
+| Weekly, or on a GitHub notification | Answer issues, PRs and comments. Approve the CI run of first-time contributors; GitHub doesn't start it otherwise. Look at the Monday CI run. |
+| Monthly, after the Home Assistant release (first Wednesday) | Read its breaking changes and the [developer blog](https://developers.home-assistant.io/blog/) for custom integrations. Check the log of a running installation for deprecation warnings from `inventer_e16`. Merge Dependabot PRs. Decide whether the minimum version in `hacs.json` should rise. |
+| New controller or fan firmware | Re-test commands, comfort settings and time programs on a real controller (rule 4) and note which firmware versions were tested. |
+| Now and then | Check how the Marketplace (formerly HACS) lists the integration. Watch forks that use the same domain `inventer_e16`: they can't run next to this integration, and their version numbers may collide with ours. |
