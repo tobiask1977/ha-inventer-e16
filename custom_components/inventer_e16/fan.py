@@ -169,7 +169,7 @@ class E16Fan(E16Entity, FanEntity):
         if (value := PROGRAM_PROFILES[profile]) in client.CUSTOM_PROFILES:
             # Whether the profile select offers it
             self.coordinator.config_entry.async_create_background_task(
-                self.hass, self.coordinator.async_find_custom_profiles((value,)),
+                self.hass, self.coordinator.async_check_custom_profiles((value,)),
                 "inventer_e16 custom profile")
         return stored
 

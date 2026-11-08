@@ -8,7 +8,7 @@ from homeassistant.const import (PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
                                  UnitOfDensity, UnitOfRatio, UnitOfTemperature, UnitOfTime)
 from homeassistant.util import dt as dt_util
 
-from .client import FOREVER, POLARITY_EXTRACT, POLARITY_SUPPLY
+from .client import FAN_DEVICE_TYPES, FOREVER, POLARITY_EXTRACT, POLARITY_SUPPLY
 from .entity import E16Entity, zone_has
 from .humidity import absolute_humidity, dew_point
 
@@ -78,7 +78,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             entities.append(E16RuntimeSensor(data.info, entry, "runtime", device))
         if device["battery"] is not None:
             entities.append(E16Battery(data.info, entry, "battery", device))
-        if device["polarity"] is not None:
+        if device["type"] in FAN_DEVICE_TYPES:
             entities.append(E16Polarity(data.info, entry, "polarity", device))
         if device["type"] in SENSOR_DEVICE_TYPES:
             entities += [E16DeviceMeasurement(data.info, entry, "temperature", device),

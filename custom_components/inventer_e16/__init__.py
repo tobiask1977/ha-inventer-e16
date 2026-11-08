@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
 """inVENTer Easy Connect e16 - local control over Wi-Fi (TLS-PSK)."""
-from datetime import timedelta
-
 from homeassistant.const import Platform
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
@@ -80,12 +78,13 @@ async def async_setup_entry(hass, entry):
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     @callback
-    def find_custom_profiles(_now=None):
+    def check_custom_profiles(_now=None):
         entry.async_create_background_task(
-            hass, data.zone.async_find_custom_profiles(), "inventer_e16 custom profiles")
+            hass, data.zone.async_check_custom_profiles(), "inventer_e16 custom profiles")
 
-    find_custom_profiles()
-    entry.async_on_unload(async_track_time_interval(hass, find_custom_profiles, timedelta(days=1)))
+    check_custom_profiles()
+    entry.async_on_unload(async_track_time_interval(
+        hass, check_custom_profiles, coordinator.CUSTOM_PROFILE_RETRY))
     # No update listener: it would reload on every entry change, even when Home Assistant only
     # records a DHCP discovery key. Options reload via OptionsFlowWithReload, flows via their abort.
     return True

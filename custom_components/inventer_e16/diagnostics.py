@@ -15,5 +15,6 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
         "options": dict(entry.options),
         "zones": data.zone.data,
+        "custom_profiles": sorted(data.zone.custom_profiles),
         "info": data.info.data,
     }

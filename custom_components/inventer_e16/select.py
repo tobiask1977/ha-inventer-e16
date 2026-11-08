@@ -3,6 +3,7 @@
 """Ventilation profile of the zone, filter and service interval."""
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from . import client
 from .entity import E16Entity
@@ -13,6 +14,7 @@ PROFILES = {0: "default", 1: "bedroom", 2: "childrens_room", 3: "bathroom", 4: "
             5: "kitchen", 6: "holiday", 252: "summer", 253: "cellar_heat_recovery",
             254: "cellar_ventilation"}
 HIDDEN_PROFILES = {**{7 + n: f"custom_{n + 1}" for n in range(9)}, 251: "winter"}
+ALL_PROFILES = {**PROFILES, **HIDDEN_PROFILES}
 INTERVALS = (
     ("filter_interval", client.F_FILTER_INTERVAL, (1, 2, 3, 4, 5, 6)),
     ("service_interval", client.F_SERVICE_INTERVAL, (3, 6, 9, 12)),
@@ -30,26 +32,30 @@ async def async_setup_entry(hass, entry, async_add_entities):
                         *(E16Interval(data.info, entry, *item) for item in INTERVALS)])
 
 
-class E16Profile(E16Entity, SelectEntity):
+class E16Profile(E16Entity, RestoreEntity, SelectEntity):
     """Permanent profile of the zone (ZoneRowField 1), like the profile choice in the app."""
 
-    def _current(self):
-        value = self.zone["profile"]
-        return PROFILES.get(value) or HIDDEN_PROFILES.get(value)
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        # Until the time programs are read, offer the custom profiles offered before the restart
+        if (last := await self.async_get_last_state()) is not None:
+            offered = set(last.attributes.get("options") or ())
+            self.coordinator.custom_profiles |= {
+                value for value in client.CUSTOM_PROFILES if HIDDEN_PROFILES[value] in offered}
 
     @property
     def options(self):
-        current = self._current()
-        options = list(PROFILES.values()) + [
-            HIDDEN_PROFILES[profile] for profile in sorted(self.coordinator.custom_profiles)]
-        return options + [current] if current and current not in options else options
+        values = set(PROFILES) | self.coordinator.custom_profiles
+        if self.zone["profile"] in HIDDEN_PROFILES:
+            values.add(self.zone["profile"])
+        return [ALL_PROFILES[value] for value in sorted(values)]
 
     @property
     def current_option(self):
-        return self._current()
+        return ALL_PROFILES.get(self.zone["profile"])
 
     async def async_select_option(self, option):
-        value = next(k for k, v in {**PROFILES, **HIDDEN_PROFILES}.items() if v == option)
+        value = next(k for k, v in ALL_PROFILES.items() if v == option)
         await self.coordinator.async_set_zone_field(self.zone_id, client.ZF_PROFILE, bytes([value]))
 
 
