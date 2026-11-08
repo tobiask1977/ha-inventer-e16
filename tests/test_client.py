@@ -59,9 +59,11 @@ def test_device_rows():
     assert (fan["name"], fan["type"], fan["hardware"], fan["status"]) == ("Fan 1", 2, 2, client.DEV_ONLINE)
     assert client.version_text(fan["firmware"]) == "5.30.9"
     assert fan["runtime"] == 78003026 and fan["battery"] is None
+    assert fan["polarity"] == client.POLARITY_EXTRACT
     sensor = client.parse_device(SENSOR_ROW)
     assert (sensor["name"], sensor["signal"]) == ("Indoor", -53)
     assert (sensor["temperature"], sensor["humidity"], sensor["battery"]) == (21.46, 62.32, 64.02)
+    assert sensor["polarity"] is None
 
 
 def test_firmware_images_and_versions():

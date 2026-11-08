@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .client import (CMD_CANCEL, CMD_GLOBAL_BOOST, CMD_GLOBAL_PAUSE, CMD_ZONE_SPEED_MODE,
-                     FAN_HEAT_RECOVERY, FAN_OFF, FAN_VENTILATION, READ_MODE_TO_FAN,
+                     CUSTOM_PROFILES, FAN_HEAT_RECOVERY, FAN_OFF, FAN_VENTILATION, READ_MODE_TO_FAN,
                      ZONE_FLAG_GLOBAL_COMMAND, ZONE_GLOBAL, E16AuthError, E16Client)
 from .const import (CATALOG_BRAND, CATALOG_URL, CONF_FIRMWARE_CATALOG, CONF_PSK, CONF_SCAN_INTERVAL,
                     DEFAULT_FIRMWARE_CATALOG, DEFAULT_SCAN_INTERVAL)
@@ -50,6 +50,8 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
         self.zone_ids = (1,)
         # Duration of speed/mode commands per zone, in minutes
         self.override_minutes = {}
+        # Custom profiles with a time program: the profile select offers them
+        self.custom_profiles = set()
 
     @property
     def multi_zone(self):
@@ -101,6 +103,17 @@ class E16ZoneCoordinator(DataUpdateCoordinator):
             await self.async_override(CMD_ZONE_SPEED_MODE, 4, mode, zone_id, duration)
         else:
             await self.async_override(CMD_GLOBAL_BOOST, 4, FAN_VENTILATION, ZONE_GLOBAL, duration)
+
+    async def async_find_custom_profiles(self, profiles=CUSTOM_PROFILES):
+        """Which custom profiles have a time program. An empty one takes 32 requests (about 4 s),
+        so this runs in the background: after setup, once a day and after a program change."""
+        try:
+            found = await self.hass.async_add_executor_job(self.client.profiles_with_program, profiles)
+        except (E16AuthError, OSError, ValueError) as error:
+            LOGGER.debug("Reading the custom profiles' time programs failed: %s", error)
+            return
+        self.custom_profiles = (self.custom_profiles - set(profiles)) | set(found)
+        self.async_update_listeners()
 
     async def async_set_zone_field(self, zone_id, field_id, raw):
         await self._async_command(self.client.set_zone_field, zone_id, field_id, raw, self.zone_ids)

@@ -180,6 +180,18 @@ def test_time_program_entries(monkeypatch):
     assert e16.get_time_program(7) == [None] * 32
 
 
+def test_profiles_with_a_time_program(monkeypatch):
+    controller = sim.FakeController()
+    e16 = wired(monkeypatch, controller)
+    e16.set_time_program_entry(9, 0, client.program_record(8 * 3600, 127, client.FAN_VENTILATION, 1))
+    e16.set_time_program_entry(12, 31, client.program_record(9 * 3600, 1, client.FAN_HEAT_RECOVERY, 2))
+    connections, requests = controller.connections, len(controller.requests)
+    assert e16.profiles_with_program(client.CUSTOM_PROFILES) == [9, 12]
+    assert controller.connections == connections + 1
+    # Reading stops at the first entry of profile 9; the other profiles take all 32 requests
+    assert len(controller.requests) - requests == 8 * 32 + 1
+
+
 def test_time_program_write_that_is_not_stored(monkeypatch):
     controller = sim.FakeController(store_programs=False)
     with pytest.raises(ValueError):

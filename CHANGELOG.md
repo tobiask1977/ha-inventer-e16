@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0 – 2026-11-08
+
+Stable release of the multi-zone support from 0.4.0b1 and 0.4.0b2, confirmed on two installations
+with several zones in #22.
+
+- **Several zones** (#22): every zone in use becomes a device of its own with fan, sensors,
+  profile, comfort settings, command duration and buttons, and its commands go to that zone only.
+  Switching a zone's fan off pauses that zone without an end. The controller keeps filter and
+  service, firmware, Wi-Fi, alarms and the outdoor values. Single-zone installations keep their
+  devices, entities and commands.
+- **Custom profiles** can be selected once they have a time program, not only while they are
+  active. The controller is checked after a start, once a day and after a change through the
+  time program actions.
+- **Polarity** of each fan unit (#33): whether it starts with supply or extract air, as a
+  diagnostic sensor. Changing it stays with the app for now.
+- The integration reloads by itself when radio devices are added, removed or moved to another
+  zone; zones and devices the controller no longer reports can be deleted in the UI.
+- Diagnostics contain every zone in use (`zones` instead of `zone`). Device type 27 is shown as
+  iV-Twin+ fan unit.
+- Documentation in English only; installation via the Marketplace of Home Assistant 2026.11.
+
 ## 0.4.0b2 – 2026-11-07 (pre-release)
 
 Second pre-release for controllers with several zones, after the first test report in #22.

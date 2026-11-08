@@ -286,6 +286,13 @@
       "battery": {
         "name": "Batterie"
       },
+      "polarity": {
+        "name": "Polarität",
+        "state": {
+          "supply": "Zuluft",
+          "extract": "Abluft"
+        }
+      },
       "dew_point_inside": {
         "name": "Taupunkt innen"
       },

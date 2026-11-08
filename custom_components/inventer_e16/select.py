@@ -7,7 +7,8 @@ from homeassistant.const import EntityCategory
 from . import client
 from .entity import E16Entity
 
-# VentilationProfile values; custom profiles and winter only appear when active
+# VentilationProfile values. Custom profiles appear when they have a time program or are active,
+# winter only when active.
 PROFILES = {0: "default", 1: "bedroom", 2: "childrens_room", 3: "bathroom", 4: "living_room",
             5: "kitchen", 6: "holiday", 252: "summer", 253: "cellar_heat_recovery",
             254: "cellar_ventilation"}
@@ -39,7 +40,8 @@ class E16Profile(E16Entity, SelectEntity):
     @property
     def options(self):
         current = self._current()
-        options = list(PROFILES.values())
+        options = list(PROFILES.values()) + [
+            HIDDEN_PROFILES[profile] for profile in sorted(self.coordinator.custom_profiles)]
         return options + [current] if current and current not in options else options
 
     @property
