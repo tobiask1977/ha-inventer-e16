@@ -86,9 +86,31 @@ async def async_setup_entry(hass, entry):
 
     @callback
     def reload_on_new_layout():
-        if data.info.data and device_zones(data.info.data["devices"]) != layout:
+        nonlocal layout
+        if not data.info.data:
+            return
+        new_layout = device_zones(data.info.data["devices"])
+        if new_layout == layout:
+            return
+        # If radio devices were added/removed or active zones changed, entities must be added/removed -> reload
+        new_devices = {addr: zone for addr, zone in new_layout}
+        old_devices = {addr: zone for addr, zone in layout}
+        new_zones = zones_in_use(data.info.data["devices"], data.zone.data, known_zones)
+        if new_devices.keys() != old_devices.keys() or new_zones != data.zone.zone_ids:
             coordinator.LOGGER.info("Radio devices or zones changed, reloading %s", entry.title)
             hass.config_entries.async_schedule_reload(entry.entry_id)
+            return
+
+        # Same devices and same zones: only moved between existing zones
+        # Update via_device_id in Device Registry directly without full reload
+        coordinator.LOGGER.info("Radio devices moved between zones, updating device hierarchy for %s", entry.title)
+        layout = new_layout
+        for addr, new_zone in new_devices.items():
+            if old_devices.get(addr) != new_zone:
+                target_via = data.zone_device_ids.get(new_zone, data.main_device_id)
+                dev = registry.async_get_device(identifiers={(DOMAIN, f"{main}_{addr}")})
+                if dev and dev.via_device_id != target_via:
+                    registry.async_update_device(dev.id, via_device_id=target_via)
 
     entry.async_on_unload(data.info.async_add_listener(reload_on_new_layout))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

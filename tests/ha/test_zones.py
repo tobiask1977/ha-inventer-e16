@@ -236,6 +236,40 @@ async def test_new_zone_reloads_the_entry(hass, monkeypatch):
     _entity(hass, "fan", "zone3_fan")
 
 
+async def test_moved_device_between_named_zones_updates_via_device_id_without_reload(hass, monkeypatch):
+    controller = sim.FakeController(zones=2)
+    # Zone 2 has a configured name so both zones stay in use
+    controller.zones[2].name = "Bedroom"
+    entry = await _setup(hass, monkeypatch, controller)
+    registry = dr.async_get(hass)
+    zone1 = _device(hass, entry, "_zone1")
+    zone2 = _device(hass, entry, "_zone2")
+    fan2 = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_2"), entry.entry_id)
+    assert fan2.via_device_id == zone1.id
+
+    # Move Fan 2 to Zone 2: both zones remain active -> no reload, via_device_id updated directly
+    reload_called = False
+    orig_schedule_reload = hass.config_entries.async_schedule_reload
+
+    def track_reload(*args, **kwargs):
+        nonlocal reload_called
+        reload_called = True
+        return orig_schedule_reload(*args, **kwargs)
+
+    monkeypatch.setattr(hass.config_entries, "async_schedule_reload", track_reload)
+    # Fan 2 (address 2, index in devices is 1: devices[1]) moves to zone 2
+    for i, dev in enumerate(controller.devices):
+        if dev[0] == 2:
+            controller.devices[i] = sim.device_row(2, 2, 2, "Fan 2", 5030009, zone=2)
+            break
+    await entry.runtime_data.info.async_refresh()
+    await hass.async_block_till_done()
+
+    assert not reload_called
+    fan2_updated = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_2"), entry.entry_id)
+    assert fan2_updated.via_device_id == zone2.id
+
+
 @pytest.mark.parametrize("zones", [1, 3])
 async def test_diagnostics_contain_every_zone(hass, monkeypatch, zones):
     from custom_components.inventer_e16.diagnostics import async_get_config_entry_diagnostics
