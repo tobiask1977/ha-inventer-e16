@@ -1,5 +1,3 @@
-# SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Markus Hennig
 """Client tests against the simulated controller in tests/simulator.py - no Home Assistant needed.
 
 The first tests check the simulator against recorded replies (tests/test_acknowledgements.py and

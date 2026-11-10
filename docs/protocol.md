@@ -1,6 +1,3 @@
-<!-- SPDX-License-Identifier: MIT -->
-<!-- Copyright (c) 2026 Markus Hennig -->
-
 # Zirconia protocol of the inVENTer Easy Connect e16
 
 What this integration knows about the local protocol of the Easy Connect e16 controller, and how
