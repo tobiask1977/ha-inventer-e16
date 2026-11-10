@@ -209,7 +209,13 @@ class E16InfoCoordinator(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(self.client.set_device_zone, address, zone_id)
         except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"Setting device zone failed: {error}") from error
-        await self.async_request_refresh()
+        # The controller confirmed the change; update the cached data immediately
+        # so get_devices returns the new zone without waiting for the next 10-min poll.
+        if self.data and "devices" in self.data:
+            for d in self.data["devices"]:
+                if d["address"] == address:
+                    d["zone"] = zone_id
+            self.async_set_updated_data(dict(self.data))
 
 
 def create(hass, entry):
