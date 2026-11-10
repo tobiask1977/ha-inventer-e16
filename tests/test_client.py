@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
+# Copyright (c) 2026 Markus Hennig
 """Protocol tests for client.py - no Home Assistant needed.
 
 The byte strings are real e16 replies with names and timestamps replaced; they contain no keys.
@@ -258,3 +259,46 @@ def test_time_program_delete(monkeypatch):
     connection = RecordingConnection(_program_reply(15, 2, bytes(8)))
     assert _client_with(monkeypatch, connection).set_time_program_entry(15, 2) is None
     assert connection.sent[0][14:22] == bytes(8)
+
+
+def test_device_field_payload():
+    # Address 2, field 1 (DF_ZONE) -> 2 * 65536 + 1 = 131073
+    assert client.field_payload(2 * 65536 + client.DF_ZONE, b"\x03").hex() == "ba0a07050100020003"
+
+
+def test_set_device_zone(monkeypatch):
+    row_reply = bytes([2]) + FAN_ROW[1:3] + bytes([3]) + FAN_ROW[4:]
+    header_packet = client.packet(client.T_DEVICE_HEADER, struct.pack("<BH", 1, 5), operation=client.RESPONSE)
+    row_packet = client.packet(client.T_DEVICE_ROW, row_reply, operation=client.RESPONSE)
+    connection = RecordingConnection(header_packet + row_packet)
+    c = _client_with(monkeypatch, connection)
+    dev = c.set_device_zone(2, 3)
+    assert dev["address"] == 2
+    assert dev["zone"] == 3
+    assert len(connection.sent) == 3
+    sent = connection.sent[0]
+    assert sent[3] == client.T_DEVICE_FIELD
+    assert sent[4] == client.UPDATE
+    assert sent[10:] == client.field_payload(2 * 65536 + client.DF_ZONE, bytes([3]))
+
+
+def test_set_device_zone_not_stored(monkeypatch):
+    row_reply = bytes([2]) + FAN_ROW[1:3] + bytes([1]) + FAN_ROW[4:]
+    header_packet = client.packet(client.T_DEVICE_HEADER, struct.pack("<BH", 1, 5), operation=client.RESPONSE)
+    row_packet = client.packet(client.T_DEVICE_ROW, row_reply, operation=client.RESPONSE)
+    connection = RecordingConnection(header_packet + row_packet)
+    c = _client_with(monkeypatch, connection)
+    with pytest.raises(ValueError):
+        c.set_device_zone(2, 3)
+
+
+def test_set_device_zone_validation(monkeypatch):
+    c = _client_with(monkeypatch, FakeConnection(b""))
+    with pytest.raises(ValueError):
+        c.set_device_zone(-1, 1)
+    with pytest.raises(ValueError):
+        c.set_device_zone(client.MAX_DEVICES, 1)
+    with pytest.raises(ValueError):
+        c.set_device_zone(1, 0)
+    with pytest.raises(ValueError):
+        c.set_device_zone(1, client.MAX_ZONES + 1)

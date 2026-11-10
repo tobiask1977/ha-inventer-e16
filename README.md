@@ -115,6 +115,8 @@ values. Zone 1 always has the indoor values; zones 2–4 only with an indoor sen
 | `inventer_e16.get_time_program` | Returns the time program of a profile (default: the current one) |
 | `inventer_e16.set_time_program_entry` | Writes one entry (0–31) of a profile's time program and reads it back |
 | `inventer_e16.delete_time_program_entry` | Deletes one entry |
+| `inventer_e16.get_devices` | Returns detected radio devices and zones from the controller |
+| `inventer_e16.set_device_zone` | Assigns a radio device (address 0–31) to a zone (1–4) |
 
 A pause that ends by itself after 30 minutes:
 
@@ -170,8 +172,8 @@ until you switch it off.
 ## Limitations
 
 - Support for several zones has been confirmed on two installations with three and four zones;
-  feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22) is welcome. Devices
-  cannot be moved to another zone.
+  feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22) is welcome. Radio
+  devices can be moved between zones using the `inventer_e16.set_device_zone` action.
 - Custom profiles cannot be created or renamed (their time programs can be edited). Which ones
   have a time program is read once a day and after a change through the actions, so a program
   created in the app can take up to a day to show up. Reading takes up to a few seconds per
@@ -203,7 +205,7 @@ dependency and can be used on its own.
 
 ## License
 
-[MIT](LICENSE), Copyright (c) 2026 Tobias Krautkremer.
+[MIT](LICENSE), Copyright (c) 2026 Tobias Krautkremer, Markus Hennig.
 
 "inVENTer" and "Easy Connect" are trademarks of their owner and are used here only to say which
 devices this software works with. This repository contains no code, images, logos or other

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
+# Copyright (c) 2026 Markus Hennig
 """Zones in use every 30 s (option), maintenance/firmware/radio devices every 10 min, vendor catalog
 once a day."""
 from dataclasses import dataclass, field
@@ -200,6 +201,14 @@ class E16InfoCoordinator(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(self.client.set_global_field, field_id, raw)
         except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 setting failed: {error}") from error
+        await self.async_request_refresh()
+
+    async def async_set_device_zone(self, address: int, zone_id: int):
+        LOGGER.debug("e16 set device %s to zone %s", address, zone_id)
+        try:
+            await self.hass.async_add_executor_job(self.client.set_device_zone, address, zone_id)
+        except (E16AuthError, OSError, ValueError) as error:
+            raise HomeAssistantError(f"Setting device zone failed: {error}") from error
         await self.async_request_refresh()
 
 

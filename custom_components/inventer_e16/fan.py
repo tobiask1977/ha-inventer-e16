@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
+# Copyright (c) 2026 Markus Hennig
 """Speed 1-4 and mode as time-limited command, off as unlimited pause - like the app."""
 import math
 
@@ -11,7 +12,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_platform
 
 from . import client
-from .entity import E16Entity
+from .entity import E16Entity, MODELS
 from .select import HIDDEN_PROFILES, PROFILES
 
 HEAT_RECOVERY, VENTILATION = "heat_recovery", "ventilation"
@@ -19,6 +20,7 @@ PRESET_TO_FAN = {HEAT_RECOVERY: client.FAN_HEAT_RECOVERY, VENTILATION: client.FA
 # Zone status reports 1 = ventilation, 2 = heat recovery (other table than the command)
 READ_MODE_TO_PRESET = {1: VENTILATION, 2: HEAT_RECOVERY}
 SPEEDS = 4
+HARDWARE_TYPES = {1: "controller", 2: "fan", 3: "sensor", 6: "wifi"}
 # Service set_mode: time-limited command with explicit mode, speed and duration - for automations.
 # The pause modes are what the app's mode dialog sends (always with speed 0); unlike turn_off they end.
 SET_MODE_MODES = {HEAT_RECOVERY: client.FAN_HEAT_RECOVERY, VENTILATION: client.FAN_VENTILATION,
@@ -90,6 +92,21 @@ async def async_setup_entry(hass, entry, async_add_entities):
     )
     entity_platform.async_get_current_platform().async_register_entity_service(
         "delete_time_program_entry", entry_fields, "async_delete_time_program_entry")
+    entity_platform.async_get_current_platform().async_register_entity_service(
+        "get_devices",
+        {vol.Optional("refresh", default=False): cv.boolean},
+        "async_get_devices",
+        supports_response=SupportsResponse.ONLY,
+    )
+    entity_platform.async_get_current_platform().async_register_entity_service(
+        "set_device_zone",
+        {
+            vol.Required("address"): vol.All(vol.Coerce(int), vol.Range(min=0, max=client.MAX_DEVICES - 1)),
+            vol.Required("zone"): vol.All(vol.Coerce(int), vol.Range(min=1, max=client.MAX_ZONES)),
+        },
+        "async_set_device_zone",
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
 
 class E16Fan(E16Entity, FanEntity):
@@ -99,6 +116,9 @@ class E16Fan(E16Entity, FanEntity):
     _attr_supported_features = (FanEntityFeature.SET_SPEED | FanEntityFeature.PRESET_MODE
                                 | FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF)
 
+    def __init__(self, coordinator, entry, key, zone_id=None):
+        super().__init__(coordinator, entry, key, zone_id=zone_id)
+        self._entry = entry
     @property
     def is_on(self):
         # Not from playback: after a command it often lags behind for a poll or longer, while
@@ -187,4 +207,50 @@ class E16Fan(E16Entity, FanEntity):
         await self.coordinator.async_override(
             client.CMD_ZONE_SPEED_MODE, speed, fan_mode, self.zone_id,
             (minutes or self.coordinator.minutes(self.zone_id)) * 60)
+
+    async def async_get_devices(self, refresh=False):
+        data = self._entry.runtime_data
+        if refresh or data.info.data is None:
+            await data.info.async_request_refresh()
+        info_data = data.info.data or {}
+        zone_data = data.zone.data or {}
+        zone_names = {zone_id: zone_data.get(zone_id, {}).get("name")
+                      for zone_id in data.zone.zone_ids}
+        devices = []
+        for d in info_data.get("devices", []):
+            devices.append({
+                "address": d["address"],
+                "name": d.get("name") or None,
+                "type": d["type"],
+                "type_name": MODELS.get(d["type"]),
+                "hardware": d["hardware"],
+                "hardware_type": HARDWARE_TYPES.get(d["hardware"]),
+                "hardware_name": HARDWARE_TYPES.get(d["hardware"]),
+                "zone": d["zone"],
+                "zone_name": zone_names.get(d["zone"]),
+                "status": d["status"],
+                "online": bool(d["status"] & client.DEV_ONLINE),
+                "signal": d["signal"] if d.get("signal") is not None and d["signal"] < 0 else None,
+                "firmware": client.version_text(d["firmware"]) if d.get("firmware") else None,
+                "temperature": d.get("temperature"),
+                "humidity": d.get("humidity"),
+                "runtime": d.get("runtime"),
+                "battery": d.get("battery"),
+            })
+        zones = [
+            {
+                "zone_id": zone_id,
+                "name": zone_data.get(zone_id, {}).get("name") or None,
+                "speed": zone_data.get(zone_id, {}).get("speed", 0),
+                "mode": zone_data.get(zone_id, {}).get("mode", 0),
+            }
+            for zone_id in data.zone.zone_ids
+        ]
+        return {"devices": devices, "zones": zones}
+
+    async def async_set_device_zone(self, address: int, zone: int):
+        data = self._entry.runtime_data
+        await data.info.async_set_device_zone(address, zone)
+        return {"success": True, "address": address, "zone": zone}
+
 

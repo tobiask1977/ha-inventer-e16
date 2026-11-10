@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Markus Hennig
 """Client tests against the simulated controller in tests/simulator.py - no Home Assistant needed.
 
 The first tests check the simulator against recorded replies (tests/test_acknowledgements.py and
@@ -198,6 +199,23 @@ def test_time_program_write_that_is_not_stored(monkeypatch):
         wired(monkeypatch, controller).set_time_program_entry(
             7, 1, client.program_record(0, 127, client.FAN_HEAT_RECOVERY, 1))
     assert len(controller.ignored_writes) == 1
+
+
+def test_set_device_zone_moves_device_and_verifies(monkeypatch):
+    controller = sim.FakeController(zones=2)
+    e16 = wired(monkeypatch, controller)
+    # Move fan 2 (address 2, initially zone 1) to zone 2
+    device = e16.set_device_zone(2, 2)
+    assert device["address"] == 2
+    assert device["zone"] == 2
+
+
+def test_set_device_zone_fails_when_not_stored(monkeypatch):
+    controller = sim.FakeController(zones=2)
+    e16 = wired(monkeypatch, controller)
+    monkeypatch.setattr(controller, "_write_field", lambda *args: False)
+    with pytest.raises(ValueError):
+        e16.set_device_zone(2, 2)
 
 
 # -- several zones (issue #22) ---------------------------------------------------------------------

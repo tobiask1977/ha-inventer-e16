@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Markus Hennig
 """A simulated e16 controller for client tests - no Home Assistant needed.
 
 `FakeController` answers the Zirconia packets described in docs/protocol.md byte by byte and keeps
@@ -40,11 +41,11 @@ import struct
 
 # Packet types, operation bits and destinations
 WIFI_STATUS, TIME_PROGRAM, FIRMWARE_STATUS, USER_OVERRIDE = 13, 48, 54, 56
-GLOBAL_FIELD, DEVICE_HEADER, DEVICE_ROW, ZONE_FIELD, ZONE_VIEW = 136, 141, 142, 144, 146
+GLOBAL_FIELD, DEVICE_FIELD, DEVICE_HEADER, DEVICE_ROW, ZONE_FIELD, ZONE_VIEW = 136, 140, 141, 142, 144, 146
 UPDATE, DATA_REQUEST = 1, 2
 CONTROLLER, WIFI_MODULE = 0, 159
 DESTINATION = {WIFI_STATUS: WIFI_MODULE, FIRMWARE_STATUS: WIFI_MODULE}
-WRITABLE_TYPES = {USER_OVERRIDE, GLOBAL_FIELD, ZONE_FIELD, TIME_PROGRAM}
+WRITABLE_TYPES = {USER_OVERRIDE, GLOBAL_FIELD, DEVICE_FIELD, ZONE_FIELD, TIME_PROGRAM}
 DOA_MAGIC, DOA_RAW, DOA_RAW_WITH_ID = 0x0ABA, 0, 7
 
 # Zone status: playback (18), mode (24, status table) and flags (23)
@@ -436,6 +437,13 @@ class FakeController:
     def _read_field(self, ptype, field_id):
         if ptype == GLOBAL_FIELD:
             return b"" if field_id in self.missing_fields else self.fields.get(field_id, b"")
+        if ptype == DEVICE_FIELD:
+            address, field = divmod(field_id, 65536)
+            if field == 1:
+                for row in self.devices:
+                    if row[0] == address:
+                        return bytes([row[3]])
+            return b""
         zone, field = divmod(field_id, 65536)
         zone = self._used_zone(zone)
         if zone is None:
@@ -459,6 +467,15 @@ class FakeController:
                 return False
             self.fields[field_id] = value
             return True
+        if ptype == DEVICE_FIELD:
+            address, field = divmod(field_id, 65536)
+            if field == 1 and len(value) == 1:
+                new_zone = value[0]
+                for i, row in enumerate(self.devices):
+                    if row[0] == address:
+                        self.devices[i] = row[:3] + bytes([new_zone]) + row[4:]
+                        return True
+            return False
         zone, field = divmod(field_id, 65536)
         zone = self._used_zone(zone)
         if zone is None:

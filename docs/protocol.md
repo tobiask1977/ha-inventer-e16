@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Markus Hennig -->
+
 # Zirconia protocol of the inVENTer Easy Connect e16
 
 What this integration knows about the local protocol of the Easy Connect e16 controller, and how
@@ -66,6 +69,7 @@ Several payloads are wrapped:
 | 54 | FirmwareUpdateStatus | 159 | – | list of 10-byte image records (below) | verified |
 | 56 | UserOverride | 0 | wrapper(Raw) + 8-byte record | time-limited command (below) | verified |
 | 136 | GlobalDataField | 0 | wrapper(RawWithId, id) | system settings (below) | verified (read, filter reset) |
+| 140 | DeviceRowField | 0 | wrapper(RawWithId, address × 65536 + field) | device settings (below) | inferred |
 | 141 | DeviceViewHeader | 0 | – | row count `u8`, version `u16` | verified |
 | 142 | DeviceViewRow | 0 | row index `u8` | one radio device (below) | verified |
 | 144 | ZoneRowField | 0 | wrapper(RawWithId, zone_id × 65536 + field) | zone settings (below) | verified (read) |
@@ -197,6 +201,13 @@ integration therefore sends the cancel for all zones.
 
 Verified: reading all, and resetting the filter timer (5.98 → 6.0 months, nothing else changed).
 The remaining time is updated rarely (unchanged over 20 minutes).
+
+### 140 DeviceRowField
+
+Field id = address × 65536 + field. Inferred by analogy with ZoneRowField (144) and
+GlobalDataField (136): uses DataObjectArray wrapper `RawWithId`. Field: 1 zone id (`u8`). Used by
+the integration to assign a radio device (fan or sensor) to a zone. Writing is verified in code by
+re-reading DeviceViewRow (142).
 
 ### 144 ZoneRowField
 

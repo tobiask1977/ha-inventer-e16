@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
+# Copyright (c) 2026 Markus Hennig
 """Local Zirconia client for the inVENTer Easy Connect e16 (TLS-PSK, TCP 47820).
 
 Pure Python, no Home Assistant imports, so it can be tested on its own.
@@ -32,6 +33,7 @@ T_TIME_PROGRAM = 48
 T_FIRMWARE_STATUS = 54
 T_USER_OVERRIDE = 56
 T_GLOBAL_FIELD = 136
+T_DEVICE_FIELD = 140
 T_DEVICE_HEADER = 141
 T_DEVICE_ROW = 142
 T_ZONE_FIELD = 144
@@ -58,6 +60,9 @@ F_FILTER_RESET, F_SERVICE_RESET = 32768, 32769
 # Installer settings, read only here: fan power per speed level (u8 %) and reversal interval (u16 s)
 F_FAN_SPEED_1, F_FAN_AUTO_DIRECTION = 32, 36
 RESET_MAGIC = {F_FILTER_RESET: 0x46768482, F_SERVICE_RESET: 0x83698286}
+
+# DeviceRowField ids: address * 65536 + field
+DF_ZONE = 1
 
 # ZoneRowField ids: zone_id * 65536 + field; fields 2-6 are float32 LE
 ZF_NAME, ZF_PROFILE = 0, 1
@@ -420,3 +425,26 @@ class E16Client:
     def set_zone_field(self, zone_id, field, raw, zone_ids=None):
         return self._update(T_ZONE_FIELD, field_payload(zone_id * 65536 + field, raw),
                             zone_ids or (zone_id,))
+
+    def set_device_zone(self, address, zone_id):
+        """Assign a device (address 0..MAX_DEVICES - 1) to a zone (1..MAX_ZONES) and verify."""
+        if not (0 <= address < MAX_DEVICES):
+            raise ValueError(f"Invalid device address: {address}")
+        if not (1 <= zone_id <= MAX_ZONES):
+            raise ValueError(f"Invalid zone ID: {zone_id}")
+        payload = field_payload(address * 65536 + DF_ZONE, bytes([zone_id]))
+        with self._connect() as connection, _malformed_as_value_error():
+            connection.sendall(packet(T_DEVICE_FIELD, payload, operation=UPDATE))
+            time.sleep(0.5)
+            count = min(self._request(connection, T_DEVICE_HEADER)[0], MAX_DEVICES)
+            device = None
+            for index in range(count):
+                row = parse_device(self._request(connection, T_DEVICE_ROW, bytes([index])))
+                if row["address"] == address:
+                    device = row
+                    break
+        if not device:
+            raise ValueError(f"Device {address} not found")
+        if device["zone"] != zone_id:
+            raise ValueError(f"Device {address} zone was not changed to {zone_id}")
+        return device

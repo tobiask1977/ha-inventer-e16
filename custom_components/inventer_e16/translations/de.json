@@ -132,6 +132,30 @@
           "description": "Platz 0–31. Welche Plätze belegt sind, zeigt die Antwort von „Zeitprogramm lesen“."
         }
       }
+    },
+    "get_devices": {
+      "name": "Geräte abrufen",
+      "description": "Liest alle erkannten Funkgeräte (Lüfter, Sensoren, Regler) und Zonen vom Regler aus.",
+      "fields": {
+        "refresh": {
+          "name": "Aktualisieren",
+          "description": "Liest die Gerätedaten sofort frisch vom Regler statt aus dem Cache."
+        }
+      }
+    },
+    "set_device_zone": {
+      "name": "Gerät einer Zone zuordnen",
+      "description": "Weist ein Funkgerät (Lüfter oder Sensor) einer bestimmten Lüftungszone zu.",
+      "fields": {
+        "address": {
+          "name": "Geräteadresse",
+          "description": "Busadresse des Geräts (0–31)."
+        },
+        "zone": {
+          "name": "Zonen-ID",
+          "description": "Nummer der Zone (1–4), der das Gerät zugeordnet werden soll."
+        }
+      }
     }
   },
   "selector": {
