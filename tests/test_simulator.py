@@ -225,6 +225,10 @@ def test_zones_in_use_follow_the_radio_devices(monkeypatch):
     # The controller (type 1) and devices without a zone (outdoor sensor: 0) don't count
     devices = [{"type": 1, "zone": 3}, {"type": 5, "zone": 0}, {"type": 2, "zone": 9}]
     assert client.zones_in_use(devices) == (1,)
+    # Zones with a configured name or existing registration stay active even without devices
+    zones = {1: {"name": "Zone 1"}, 2: {"name": "Bedroom"}, 3: {"name": ""}}
+    assert client.zones_in_use([], zones=zones) == (1, 2)
+    assert client.zones_in_use([], zones=zones, known_zones=(3,)) == (1, 2, 3)
 
 
 def test_unused_zones_answer_but_are_empty(monkeypatch):

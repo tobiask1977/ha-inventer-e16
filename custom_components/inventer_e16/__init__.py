@@ -6,7 +6,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_track_time_interval
 
-from . import coordinator
+from . import client, coordinator
 from .client import zones_in_use
 from .const import CONF_DEVICE_ID, CONF_FIRMWARE_CATALOG, DOMAIN
 from .entity import zone_device_key
@@ -36,11 +36,27 @@ async def async_setup_entry(hass, entry):
     data = coordinator.create(hass, entry)
     # The radio devices tell which zones are in use, so read them before the zones
     await data.info.async_config_entry_first_refresh()
-    data.zone.zone_ids = zones_in_use(data.info.data["devices"])
-    await data.zone.async_config_entry_first_refresh()
-    # Create the devices first: entities, fans and sensors reference them via via_device_id
-    main, multi_zone = entry.data[CONF_DEVICE_ID], data.zone.multi_zone
+    main = entry.data[CONF_DEVICE_ID]
     registry = dr.async_get(hass)
+    known_zones = {
+        zone_id for zone_id in range(1, client.MAX_ZONES + 1)
+        if registry.async_get_device(identifiers={(DOMAIN, f"{main}_zone{zone_id}")})
+        or registry.async_get_device(identifiers={(DOMAIN, f"{main}_z{zone_id}")})
+    }
+    try:
+        raw_zones = await hass.async_add_executor_job(
+            data.zone.client.get_zones, tuple(range(1, client.MAX_ZONES + 1))
+        )
+    except Exception:
+        raw_zones = None
+
+    data.zone.zone_ids = zones_in_use(data.info.data["devices"], raw_zones, known_zones)
+    if raw_zones:
+        data.zone.async_set_updated_data({zid: raw_zones[zid] for zid in data.zone.zone_ids})
+    else:
+        await data.zone.async_config_entry_first_refresh()
+    # Create the devices first: entities, fans and sensors reference them via via_device_id
+    multi_zone = data.zone.multi_zone
     # The entry is named after zone 1. With several zones, zone 1 is a device of its own, so the
     # controller goes by its model name.
     data.main_device_id = registry.async_get_or_create(

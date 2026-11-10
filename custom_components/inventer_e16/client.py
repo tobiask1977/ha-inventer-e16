@@ -253,11 +253,20 @@ def parse_device(data):
     }
 
 
-def zones_in_use(devices):
-    """Zone 1 and every other zone with a radio device assigned. Every zone answers, used or not
-    (an unused one with an empty name and speed 0); the device rows carry the zone."""
-    return tuple(sorted({1} | {device["zone"] for device in devices
-                               if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}))
+def zones_in_use(devices, zones=None, known_zones=None):
+    """Zone 1, every zone with a radio device assigned, a configured name, or already known in HA."""
+    used = {1} | {device["zone"] for device in devices
+                 if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}
+    if zones:
+        if isinstance(zones, dict):
+            used |= {zid for zid, z in zones.items()
+                     if isinstance(z, dict) and z.get("name") and z["name"].strip()}
+        elif isinstance(zones, (list, tuple)):
+            used |= {z.get("zone_id", idx + 1) for idx, z in enumerate(zones)
+                     if isinstance(z, dict) and z.get("name") and z["name"].strip()}
+    if known_zones:
+        used |= set(known_zones)
+    return tuple(sorted(used))
 
 
 @contextmanager
