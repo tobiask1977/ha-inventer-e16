@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """A simulated e16 controller for client tests - no Home Assistant needed.
 
 `FakeController` answers the Zirconia packets described in docs/protocol.md byte by byte and keeps
