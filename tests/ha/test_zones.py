@@ -264,3 +264,32 @@ async def test_fan_units_show_their_polarity(hass, monkeypatch):
     assert hass.states.get(_entity(hass, "sensor", "1_polarity")).state == "extract"
     assert hass.states.get(_entity(hass, "sensor", "2_polarity")).state == "supply"
     assert er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{DEVICE_ID}_0_polarity") is None
+
+
+async def test_fan_units_have_zone_select_entity(hass, monkeypatch):
+    controller = sim.FakeController(zones=2)
+    controller.zones[1].name = "Wohnzimmer"
+    controller.zones[2].name = "Schlafzimmer"
+    controller.devices[2] = sim.device_row(2, 2, 2, "Fan 2", 5030009, zone=1)
+    entry = await _setup(hass, monkeypatch, controller)
+    fan2_zone_select = _entity(hass, "select", "2_zone")
+    state = hass.states.get(fan2_zone_select)
+    assert state is not None
+    assert state.state == "Zone 1 - Wohnzimmer"
+    assert "Zone 1 - Wohnzimmer" in state.attributes["options"]
+    assert "Zone 2 - Schlafzimmer" in state.attributes["options"]
+
+    # Select another zone using select_option
+    await _call(hass, "select", "select_option", fan2_zone_select, option="Zone 2 - Schlafzimmer")
+    assert hass.states.get(fan2_zone_select).state == "Zone 2 - Schlafzimmer"
+    assert controller.devices[2][3] == 2
+
+    # Controller (address 0) does not get a zone select entity
+    assert er.async_get(hass).async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_0_zone") is None
+
+    # Switch back using the set_device_zone service
+    fan_entity = _entity(hass, "fan", "fan")
+    await _call(hass, DOMAIN, "set_device_zone", fan_entity, address=2, zone=1)
+    assert hass.states.get(fan2_zone_select).state == "Zone 1 - Wohnzimmer"
+    assert controller.devices[2][3] == 1
+

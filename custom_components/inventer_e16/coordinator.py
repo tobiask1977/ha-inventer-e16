@@ -216,6 +216,19 @@ class E16InfoCoordinator(DataUpdateCoordinator):
                 if d["address"] == address:
                     d["zone"] = zone_id
             self.async_set_updated_data(dict(self.data))
+        try:
+            from homeassistant.helpers import device_registry as dr
+            from .const import CONF_DEVICE_ID, DOMAIN
+            data = getattr(self.config_entry, "runtime_data", None)
+            if data and hasattr(data, "zone_device_ids"):
+                registry = dr.async_get(self.hass)
+                main = self.config_entry.data[CONF_DEVICE_ID]
+                target_via = data.zone_device_ids.get(zone_id, data.main_device_id)
+                dev = registry.async_get_device(identifiers={(DOMAIN, f"{main}_{address}")})
+                if dev and dev.via_device_id != target_via:
+                    registry.async_update_device(dev.id, via_device_id=target_via)
+        except Exception as err:
+            LOGGER.debug("Could not update device via_device_id: %s", err)
 
 
 def create(hass, entry):

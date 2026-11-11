@@ -467,6 +467,9 @@
           "9": "9 Monate",
           "12": "12 Monate"
         }
+      },
+      "zone": {
+        "name": "Zone"
       }
     },
     "update": {

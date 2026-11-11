@@ -253,4 +253,3 @@ class E16Fan(E16Entity, FanEntity):
         await data.info.async_set_device_zone(address, zone)
         return {"success": True, "address": address, "zone": zone}
 
-
