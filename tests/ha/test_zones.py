@@ -11,8 +11,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import State
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 from pytest_homeassistant_custom_component.common import (MockConfigEntry, async_fire_time_changed,
                                                           mock_restore_cache)
 
@@ -322,10 +324,45 @@ async def test_custom_profiles_survive_a_restart_and_a_failed_read(hass, monkeyp
     assert "custom_3" in _options(hass, "profile") and "custom_4" not in _options(hass, "profile")
 
 
-async def test_fan_units_show_their_polarity(hass, monkeypatch):
+async def test_polarity_of_a_pair_can_be_changed(hass, monkeypatch):
+    controller = sim.FakeController(zones=3)  # zone 1: fans 1 and 2
+    controller.devices[2] = sim.device_row(2, 2, 2, "Fan 2", 5030009, polarity=0, signal=-54)
+    # 0.4.0 showed the polarity as a sensor
+    registry = er.async_get(hass)
+    registry.async_get_or_create("sensor", DOMAIN, f"{DEVICE_ID}_1_polarity")
+    entry = await _setup(hass, monkeypatch, controller)
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{DEVICE_ID}_1_polarity") is None
+    fan1, fan2 = _entity(hass, "select", "1_polarity"), _entity(hass, "select", "2_polarity")
+    assert registry.async_get(fan1).entity_category == "config"
+    assert (hass.states.get(fan1).state, hass.states.get(fan2).state) == ("extract", "supply")
+    assert hass.states.get(fan1).attributes["options"] == ["supply", "extract"]
+    # The controller switches the other fan of the pair along; both show it at once
+    await _call(hass, "select", "select_option", fan2, option="extract")
+    assert (hass.states.get(fan1).state, hass.states.get(fan2).state) == ("supply", "extract")
+    writes = [p for t, op, p in controller.requests if t == sim.DEVICE_FIELD]
+    assert writes == [sim.raw_with_id(2 * 65536 + 32, b"\x01")]
+    # Neither the controller nor the sensors have a polarity; no reload for it
+    assert registry.async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_0_polarity") is None
+    assert entry.state is ConfigEntryState.LOADED
+
+
+async def test_polarity_write_that_is_not_stored(hass, monkeypatch):
     controller = sim.FakeController()
-    controller.devices[2] = sim.device_row(2, 2, 2, "Fan 2", 5030009, polarity=0)
     await _setup(hass, monkeypatch, controller)
-    assert hass.states.get(_entity(hass, "sensor", "1_polarity")).state == "extract"
-    assert hass.states.get(_entity(hass, "sensor", "2_polarity")).state == "supply"
-    assert er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{DEVICE_ID}_0_polarity") is None
+    monkeypatch.setattr(controller, "_write_device_field", lambda *args: False)
+    with pytest.raises(HomeAssistantError, match="not stored"):
+        await _call(hass, "select", "select_option", _entity(hass, "select", "2_polarity"),
+                    option="supply")
+    assert hass.states.get(_entity(hass, "select", "2_polarity")).state == "extract"
+
+
+async def test_wired_devices_have_no_radio_signal(hass, monkeypatch):
+    controller = sim.FakeController()  # fan 1 is wired, the others use radio
+    registry = er.async_get(hass)
+    # 0.4.0 created a signal sensor that always showed unknown
+    registry.async_get_or_create("sensor", DOMAIN, f"{DEVICE_ID}_1_signal")
+    await _setup(hass, monkeypatch, controller)
+    assert registry.async_get_entity_id("sensor", DOMAIN, f"{DEVICE_ID}_1_signal") is None
+    assert hass.states.get(_entity(hass, "sensor", "2_signal")).state == "-54"
+    # The wired fan keeps its other entities
+    _entity(hass, "select", "1_polarity")

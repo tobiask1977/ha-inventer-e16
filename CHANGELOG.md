@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 – 2026-11-12
+
+- **Polarity can be changed** (#33): the polarity of a fan unit is now a select in its
+  configuration instead of the diagnostic sensor from 0.4.0, which is removed (same states,
+  `supply` and `extract`). The controller keeps the two fans of a pair opposite, so changing one
+  switches the other along; both show the new value at once. Tested with one pair of fans.
+- **Fans on a cable** no longer get a *Radio signal* sensor, which always showed *unknown* for
+  them: the controller reports a fixed marker instead of a radio level. The old sensor is removed.
+
 ## 0.4.0 – 2026-11-08
 
 Stable release of the multi-zone support from 0.4.0b1 and 0.4.0b2, confirmed on two installations

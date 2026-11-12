@@ -286,13 +286,6 @@
       "battery": {
         "name": "Batterie"
       },
-      "polarity": {
-        "name": "Polarität",
-        "state": {
-          "supply": "Zuluft",
-          "extract": "Abluft"
-        }
-      },
       "dew_point_inside": {
         "name": "Taupunkt innen"
       },
@@ -442,6 +435,13 @@
           "6": "6 Monate",
           "9": "9 Monate",
           "12": "12 Monate"
+        }
+      },
+      "polarity": {
+        "name": "Polarität",
+        "state": {
+          "supply": "Zuluft",
+          "extract": "Abluft"
         }
       }
     },

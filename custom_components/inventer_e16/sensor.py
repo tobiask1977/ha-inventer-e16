@@ -6,9 +6,11 @@ from datetime import timedelta
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import (PERCENTAGE, SIGNAL_STRENGTH_DECIBELS_MILLIWATT, EntityCategory,
                                  UnitOfDensity, UnitOfRatio, UnitOfTemperature, UnitOfTime)
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
-from .client import FAN_DEVICE_TYPES, FOREVER, POLARITY_EXTRACT, POLARITY_SUPPLY
+from .client import FAN_DEVICE_TYPES, FOREVER
+from .const import CONF_DEVICE_ID, DOMAIN
 from .entity import E16Entity, zone_has
 from .humidity import absolute_humidity, dew_point
 
@@ -18,7 +20,6 @@ MODES = {0: "off", 1: "ventilation", 2: "heat_recovery"}
 COMMANDS = {0: "none", 1: "global_boost", 2: "global_pause", 3: "zone_boost", 4: "zone_pause",
             5: "zone_speed_mode", 6: "zone_profile", 7: "cancel", 8: "fan_off", 9: "fan_off_cancel"}
 NOT_ACTIVE = {0, 7, 9}
-POLARITIES = {POLARITY_SUPPLY: "supply", POLARITY_EXTRACT: "extract"}
 ZONE_SENSORS = (
     ("speed", None, None),
     ("playback", SensorDeviceClass.ENUM, None),
@@ -70,19 +71,31 @@ async def async_setup_entry(hass, entry, async_add_entities):
         entities += [E16FanLevel(data.info, entry, f"fan_speed_level_{n + 1}", n) for n in range(4)]
     if data.info.data.get("fan_reversal_interval") is not None:
         entities.append(E16ReversalInterval(data.info, entry, "fan_reversal_interval"))
+    # Sensors of earlier versions that this setup no longer provides, as unique ids
+    retired = []
+    main = entry.data[CONF_DEVICE_ID]
     for device in data.info.data["devices"]:
         if device["type"] == 1:
             continue
-        entities.append(E16RadioSensor(data.info, entry, "signal", device))
+        # A wired device reports a marker instead of a radio level
+        if device["wired"]:
+            retired.append(f"{main}_{device['address']}_signal")
+        else:
+            entities.append(E16RadioSensor(data.info, entry, "signal", device))
         if device["runtime"]:
             entities.append(E16RuntimeSensor(data.info, entry, "runtime", device))
         if device["battery"] is not None:
             entities.append(E16Battery(data.info, entry, "battery", device))
         if device["type"] in FAN_DEVICE_TYPES:
-            entities.append(E16Polarity(data.info, entry, "polarity", device))
+            # A sensor in 0.4.0, a select since the polarity can be changed
+            retired.append(f"{main}_{device['address']}_polarity")
         if device["type"] in SENSOR_DEVICE_TYPES:
             entities += [E16DeviceMeasurement(data.info, entry, "temperature", device),
                          E16DeviceMeasurement(data.info, entry, "humidity", device)]
+    registry = er.async_get(hass)
+    for unique_id in retired:
+        if entity_id := registry.async_get_entity_id("sensor", DOMAIN, unique_id):
+            registry.async_remove(entity_id)
     async_add_entities(entities)
 
 
@@ -174,7 +187,8 @@ class E16WifiSensor(E16Entity, SensorEntity):
 
 
 class E16RadioSensor(E16Entity, SensorEntity):
-    """Direct radio level to the controller; non-negative values (seen: 126) mean no reading."""
+    """Direct radio level to the controller; other non-negative values than the wired marker
+    mean no reading."""
     _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
     _attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -231,18 +245,6 @@ class E16Battery(E16Entity, SensorEntity):
     def native_value(self):
         row = self.device_row()
         return row["battery"] if row else None
-
-
-class E16Polarity(E16Entity, SensorEntity):
-    """Direction a fan unit starts in; the two fans of a pair start in opposite directions."""
-    _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = list(POLARITIES.values())
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    @property
-    def native_value(self):
-        row = self.device_row()
-        return POLARITIES.get(row["polarity"]) if row else None
 
 
 class E16ClimateSensor(E16Entity, SensorEntity):
