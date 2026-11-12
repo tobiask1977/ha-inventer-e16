@@ -310,13 +310,6 @@
       "battery": {
         "name": "Batterie"
       },
-      "polarity": {
-        "name": "Polarität",
-        "state": {
-          "supply": "Zuluft",
-          "extract": "Abluft"
-        }
-      },
       "dew_point_inside": {
         "name": "Taupunkt innen"
       },
@@ -470,6 +463,13 @@
       },
       "zone": {
         "name": "Zone"
+      },
+      "polarity": {
+        "name": "Polarität",
+        "state": {
+          "supply": "Zuluft",
+          "extract": "Abluft"
+        }
       }
     },
     "update": {

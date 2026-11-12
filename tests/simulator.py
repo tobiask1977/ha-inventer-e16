@@ -19,10 +19,13 @@ Behaviour seen on real controllers:
   are used). A command for one zone changes only that zone, and a cancel for one zone leaves its
   record at 74 as it was. Cancel for all zones writes its record into every zone, and the global
   boost keeps each zone's mode (seen on a controller with four zones, #22)
+- writing the polarity of a fan unit (DeviceRowField 32) switches the other fan of the pair to the
+  opposite value as well (seen with one pair, #33). A wired device reports 126 as signal.
 
 Assumed, not captured: which zone the status after a command belongs to on a controller with
-several zones (here the addressed zone, zone 1 for commands to all zones), and that a global
-command writes its record into every zone.
+several zones (here the addressed zone, zone 1 for commands to all zones), that a global
+command writes its record into every zone, and the polarity with more than two fan units in a
+zone (here only the written one changes).
 
 Faults to test error handling with:
 - `apply_commands=False`: a command is stored (74) but not applied
@@ -40,7 +43,8 @@ import struct
 
 # Packet types, operation bits and destinations
 WIFI_STATUS, TIME_PROGRAM, FIRMWARE_STATUS, USER_OVERRIDE = 13, 48, 54, 56
-GLOBAL_FIELD, DEVICE_FIELD, DEVICE_HEADER, DEVICE_ROW, ZONE_FIELD, ZONE_VIEW = 136, 140, 141, 142, 144, 146
+GLOBAL_FIELD, DEVICE_FIELD, DEVICE_HEADER, DEVICE_ROW = 136, 140, 141, 142
+ZONE_FIELD, ZONE_VIEW = 144, 146
 UPDATE, DATA_REQUEST = 1, 2
 CONTROLLER, WIFI_MODULE = 0, 159
 DESTINATION = {WIFI_STATUS: WIFI_MODULE, FIRMWARE_STATUS: WIFI_MODULE}
@@ -70,6 +74,9 @@ RESETS = {32768: (0x46768482, FILTER_LEFT, FILTER_INTERVAL),
 READ_ONLY_FIELDS = {FILTER_LEFT, SERVICE_LEFT}
 
 PROGRAM_TABLES, PROGRAM_ENTRIES, WHOLE_STORE = 15, 32, 0xFFFF
+# Device rows: fan unit types, polarity field (DeviceRowField) and its offset in the row
+FAN_TYPES, POLARITY_FIELD, POLARITY_OFFSET = {2, 3}, 32, 41
+DEVICE_ZONE_FIELD = 1  # DeviceRowField: zone of the device (offset 3), from #37
 SOCKET_TIMEOUT = 10.0  # what the client passes to socket.create_connection
 CHUNK = 3  # bytes per recv(), so the client has to reassemble packets
 MISSING = b"\xff\xff\xff\xff"  # device rows: no reading
@@ -280,8 +287,10 @@ class FakeController:
                        DEFAULT_MODE: b"\x01", DEFAULT_SPEED: b"\x01"}
         self.programs = {}  # (table, entry) -> 8-byte record; missing = empty
         fan_zones = [1, 1, 1, 1] if zones == 1 else [1, 1, *range(2, zones + 1)]
+        # Fan 1 is wired, like the recorded one; the others use radio
         self.devices = [device_row(0, 1, 1, "Controller", 5030010, polarity=0)] + [
-            device_row(n, 2, 2, f"Fan {n}", 5030009, zone=zone) for n, zone in enumerate(fan_zones, 1)]
+            device_row(n, 2, 2, f"Fan {n}", 5030009, zone=zone, signal=126 if n == 1 else -54)
+            for n, zone in enumerate(fan_zones, 1)]
         self.wifi_rssi = -60
         self.firmware_images = [(255, 1, 1003011, 0x12345678)]  # index, valid, version, crc
 
@@ -467,14 +476,7 @@ class FakeController:
             self.fields[field_id] = value
             return True
         if ptype == DEVICE_FIELD:
-            address, field = divmod(field_id, 65536)
-            if field == 1 and len(value) == 1:
-                new_zone = value[0]
-                for i, row in enumerate(self.devices):
-                    if row[0] == address:
-                        self.devices[i] = row[:3] + bytes([new_zone]) + row[4:]
-                        return True
-            return False
+            return self._write_device_field(*divmod(field_id, 65536), value)
         zone, field = divmod(field_id, 65536)
         zone = self._used_zone(zone)
         if zone is None:
@@ -486,3 +488,26 @@ class FakeController:
         else:
             return False
         return True
+
+    def _write_device_field(self, address, field, value):
+        # Other device fields change or remove the device; the client must never send them
+        assert field in (POLARITY_FIELD, DEVICE_ZONE_FIELD), f"client wrote device field {field}"
+        index = next((i for i, row in enumerate(self.devices) if row[0] == address), None)
+        if field == DEVICE_ZONE_FIELD:
+            if index is None or len(value) != 1:
+                return False
+            row = self.devices[index]
+            self.devices[index] = row[:3] + value + row[4:]
+            return True
+        if index is None or self.devices[index][1] not in FAN_TYPES or value not in (b"\0", b"\1"):
+            return False
+        zone = self.devices[index][3]
+        fans = [i for i, row in enumerate(self.devices) if row[1] in FAN_TYPES and row[3] == zone]
+        self._set_polarity(index, value[0])
+        if len(fans) == 2:
+            self._set_polarity(next(i for i in fans if i != index), 1 - value[0])
+        return True
+
+    def _set_polarity(self, index, polarity):
+        row = self.devices[index]
+        self.devices[index] = row[:POLARITY_OFFSET] + bytes([polarity]) + row[POLARITY_OFFSET + 1:]

@@ -230,6 +230,15 @@ class E16InfoCoordinator(DataUpdateCoordinator):
         except Exception as err:
             LOGGER.debug("Could not update device via_device_id: %s", err)
 
+    async def async_set_polarity(self, address, polarity):
+        try:
+            devices = await self.hass.async_add_executor_job(
+                self.client.set_polarity, address, polarity)
+        except (E16AuthError, OSError, ValueError) as error:
+            raise HomeAssistantError(f"e16 setting failed: {error}") from error
+        # The other fan of the pair changed as well: take over all rows read back
+        self.async_set_updated_data({**self.data, "devices": devices})
+
 
 def create(hass, entry):
     client = E16Client(entry.data[CONF_HOST], entry.data[CONF_PSK])

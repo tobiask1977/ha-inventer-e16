@@ -66,7 +66,7 @@ Several payloads are wrapped:
 | 54 | FirmwareUpdateStatus | 159 | – | list of 10-byte image records (below) | verified |
 | 56 | UserOverride | 0 | wrapper(Raw) + 8-byte record | time-limited command (below) | verified |
 | 136 | GlobalDataField | 0 | wrapper(RawWithId, id) | system settings (below) | verified (read, filter reset) |
-| 140 | DeviceRowField | 0 | wrapper(RawWithId, address × 65536 + field) | device settings (below) | inferred |
+| 140 | DeviceRowField | 0 | wrapper(RawWithId, address × 65536 + field) | settings of a radio device (below) | verified (polarity write); zone write inferred |
 | 141 | DeviceViewHeader | 0 | – | row count `u8`, version `u16` | verified |
 | 142 | DeviceViewRow | 0 | row index `u8` | one radio device (below) | verified |
 | 144 | ZoneRowField | 0 | wrapper(RawWithId, zone_id × 65536 + field) | zone settings (below) | verified (read) |
@@ -199,18 +199,26 @@ integration therefore sends the cancel for all zones.
 Verified: reading all, and resetting the filter timer (5.98 → 6.0 months, nothing else changed).
 The remaining time is updated rarely (unchanged over 20 minutes).
 
-### 140 DeviceRowField
-
-Field id = address × 65536 + field. Inferred by analogy with ZoneRowField (144) and
-GlobalDataField (136): uses DataObjectArray wrapper `RawWithId`. Field: 1 zone id (`u8`). Used by
-the integration to assign a radio device (fan or sensor) to a zone. Writing is verified in code by
-re-reading DeviceViewRow (142).
-
 ### 144 ZoneRowField
 
 Field id = zone id × 65536 + field. Fields: 0 name (16 bytes), 1 profile (u8), 2 comfort room
 temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6 VOC threshold
 (each f32). Verified by reading: zone 1 field 0 returns the zone name, field 1 the profile. Verified by writing: field 1 (profile 253 → 0 → 253) and field 2 (comfort room temperature 20.0 → 20.5 → 20.0 °C); the zone status reflects the new value immediately, other fields stay unchanged.
+
+### 140 DeviceRowField
+
+Field id = device address × 65536 + field. Field 32 is the polarity of a fan unit (u8, 0 supply,
+1 extract, the value at offset 41 of the device row). Like the other writes, it gets no reply;
+read the device rows back.
+
+Verified in November 2026 on one pair of fan units: writing the polarity of one fan unit switches
+the other fan of the pair to the opposite value as well. Both rows show the new values after one
+second, the app shows them too, and writing it back restores both. Which fan the controller
+switches along in a zone with more than two fan units is not known.
+
+Field 1 is the zone of a device (`u8`, zone id 1–4), used by the action `set_device_zone` to move
+a radio device to another zone. Inferred by analogy with ZoneRowField (144); the integration reads
+the device rows back after the write.
 
 ### 142 DeviceViewRow (V5)
 
@@ -221,13 +229,13 @@ temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6
 | 2 | u8 | Hardware type (1 controller, 2 fan, 3 sensor) |
 | 3 | u8 | Zone id (0 for the outdoor sensor, verified) |
 | 4 | u32 | Status bits: 1 offline, 2 online, 4 config pending, 8/16/32 firmware update in progress/ready/failed, 64 battery low, 128 battery critical, 1024 device lost, 2048 alarm, 8192 service due soon, 16384 filter due soon, 32768 service expired, 65536 filter expired, 131072 time not set |
-| 8 | i8 | Direct radio level in dBm (126 seen = no reading) |
+| 8 | i8 | Direct radio level in dBm; 126 = wired device, no radio level (verified: a fan unit on a cable reports 126, and the app shows it as wired) |
 | 9 | u32 | Firmware version |
 | 13 | 16 bytes | Name |
 | 29 | f32 | Temperature |
 | 33 | f32 | Humidity |
 | 37 | u32 | Total runtime, seconds (inferred from a controller replaced half a day earlier: 43 200) |
-| 41 | type-dependent | fan units: polarity u8, the direction the fan starts in: 0 supply, 1 extract (verified against the app on two paired fans, which report opposite values); T/RH and battery sensors: battery level f32 (percent inferred, values 62–64 seen); alarm interface: alarm u8 |
+| 41 | type-dependent | fan units: polarity u8, the direction the fan starts in: 0 supply, 1 extract (verified against the app on two paired fans, which report opposite values; written with DeviceRowField 32); T/RH and battery sensors: battery level f32 (percent inferred, values 62–64 seen); alarm interface: alarm u8 |
 | 54 | u8 / u8 / i8 | Repeater flag, repeater address, repeated signal (127 seen when no repeater is in use) |
 | 57 | u8 | Unknown, `0xFF` seen on every device |
 

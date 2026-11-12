@@ -217,6 +217,27 @@ def test_set_device_zone_fails_when_not_stored(monkeypatch):
         e16.set_device_zone(2, 2)
 
 
+def test_polarity_switches_the_other_fan_of_the_pair(monkeypatch):
+    controller = sim.FakeController(zones=3)  # zone 1: fans 1 and 2
+    e16 = wired(monkeypatch, controller)
+    controller.devices[2] = sim.device_row(2, 2, 2, "Fan 2", 5030009, polarity=0)
+    devices = {d["address"]: d for d in e16.set_polarity(2, client.POLARITY_EXTRACT)}
+    assert (devices[1]["polarity"], devices[2]["polarity"]) == (0, 1)
+    # Fans of the other zones keep theirs; one connection for write and read back
+    assert devices[3]["polarity"] == devices[4]["polarity"] == 1
+    assert controller.connections == 1
+    devices = {d["address"]: d for d in e16.get_info()["devices"]}
+    assert (devices[1]["polarity"], devices[2]["polarity"]) == (0, 1)
+
+
+def test_polarity_of_a_device_without_one_is_not_stored(monkeypatch):
+    controller = sim.FakeController()
+    controller.devices.append(sim.device_row(5, 4, 3, "Indoor", 5030008, signal=-53, battery=64.0))
+    with pytest.raises(ValueError, match="not stored"):
+        wired(monkeypatch, controller).set_polarity(5, client.POLARITY_SUPPLY)
+    assert len(controller.ignored_writes) == 1
+
+
 # -- several zones (issue #22) ---------------------------------------------------------------------
 
 def test_zones_in_use_follow_the_radio_devices(monkeypatch):

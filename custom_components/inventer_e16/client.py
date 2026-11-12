@@ -88,6 +88,10 @@ BATTERY_DEVICE_TYPES = {4, 5, 12}
 # Fan units carry their polarity at offset 41: the direction they start in, 0 = supply, 1 = extract
 FAN_DEVICE_TYPES = {2, 3}
 POLARITY_SUPPLY, POLARITY_EXTRACT = 0, 1
+# DeviceRowField ids: address * 65536 + field. Only the polarity is ever written.
+DF_POLARITY = 32
+# DeviceViewRow.signal of a device on a cable instead of a radio level in dBm
+SIGNAL_WIRED = 126
 # A controller has a handful of radio devices; cap what a (faulty) reply can make us query
 MAX_DEVICES = 32
 # Zone ids 1-4 (ZoneViewRow index = id - 1). Every controller answers all four, used or not.
@@ -244,7 +248,7 @@ def parse_device(data):
     temperature, humidity, runtime, battery = struct.unpack_from("<ffIf", data, 29)
     return {
         "address": address, "type": device_type, "hardware": hardware, "zone": zone,
-        "status": status, "signal": signal, "firmware": firmware,
+        "status": status, "signal": signal, "wired": signal == SIGNAL_WIRED, "firmware": firmware,
         "name": data[13:29].split(b"\0")[0].decode("utf-8", "replace").strip(),
         "temperature": _finite(temperature), "humidity": _finite(humidity), "runtime": runtime,
         "battery": _finite(battery) if device_type in BATTERY_DEVICE_TYPES else None,
@@ -388,10 +392,30 @@ class E16Client:
             info["wifi_rssi"] = struct.unpack_from("<b", wifi, 4)[0]
             images = self._request(connection, T_FIRMWARE_STATUS, b"", ESP32)
             info["esp32_firmware"] = parse_firmware_images(images).get(255)
-            count = min(self._request(connection, T_DEVICE_HEADER)[0], MAX_DEVICES)
-            info["devices"] = [parse_device(self._request(connection, T_DEVICE_ROW, bytes([index])))
-                               for index in range(count)]
+            info["devices"] = self._devices(connection)
         return info
+
+    @classmethod
+    def _devices(cls, connection):
+        count = min(cls._request(connection, T_DEVICE_HEADER)[0], MAX_DEVICES)
+        return [parse_device(cls._request(connection, T_DEVICE_ROW, bytes([index])))
+                for index in range(count)]
+
+    def set_polarity(self, address, polarity):
+        """Set the direction a fan unit starts in and return the radio devices read afterwards.
+        The controller does not answer the write, and it keeps the two fans of a pair opposite:
+        the partner changes as well."""
+        if polarity not in (POLARITY_SUPPLY, POLARITY_EXTRACT) or not 0 < address < MAX_DEVICES:
+            raise ValueError(f"No polarity {polarity} for device {address}")
+        payload = field_payload(address * 65536 + DF_POLARITY, bytes([polarity]))
+        with self._connect() as connection, _malformed_as_value_error():
+            connection.sendall(packet(T_DEVICE_FIELD, payload, operation=UPDATE))
+            # Measured: both fans of the pair show the new values after one second
+            time.sleep(1)
+            devices = self._devices(connection)
+        if next((d["polarity"] for d in devices if d["address"] == address), None) != polarity:
+            raise ValueError(f"The polarity of device {address} was not stored")
+        return devices
 
     def _program_entry(self, connection, profile, entry):
         return parse_program_reply(
