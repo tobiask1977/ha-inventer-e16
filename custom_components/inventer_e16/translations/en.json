@@ -286,13 +286,6 @@
       "battery": {
         "name": "Battery"
       },
-      "polarity": {
-        "name": "Polarity",
-        "state": {
-          "supply": "Supply",
-          "extract": "Extract"
-        }
-      },
       "dew_point_inside": {
         "name": "Dew point indoor"
       },
@@ -442,6 +435,13 @@
           "6": "6 months",
           "9": "9 months",
           "12": "12 months"
+        }
+      },
+      "polarity": {
+        "name": "Polarity",
+        "state": {
+          "supply": "Supply",
+          "extract": "Extract"
         }
       }
     },

@@ -60,8 +60,10 @@ def test_device_rows():
     assert client.version_text(fan["firmware"]) == "5.30.9"
     assert fan["runtime"] == 78003026 and fan["battery"] is None
     assert fan["polarity"] == client.POLARITY_EXTRACT
+    # The recorded fan unit is wired: 126 instead of a radio level
+    assert fan["signal"] == client.SIGNAL_WIRED and fan["wired"]
     sensor = client.parse_device(SENSOR_ROW)
-    assert (sensor["name"], sensor["signal"]) == ("Indoor", -53)
+    assert (sensor["name"], sensor["signal"], sensor["wired"]) == ("Indoor", -53, False)
     assert (sensor["temperature"], sensor["humidity"], sensor["battery"]) == (21.46, 62.32, 64.02)
     assert sensor["polarity"] is None
 
@@ -258,3 +260,41 @@ def test_time_program_delete(monkeypatch):
     connection = RecordingConnection(_program_reply(15, 2, bytes(8)))
     assert _client_with(monkeypatch, connection).set_time_program_entry(15, 2) is None
     assert connection.sent[0][14:22] == bytes(8)
+
+
+def _device_replies(*rows):
+    header = client.packet(client.T_DEVICE_HEADER, struct.pack("<BH", len(rows), 5),
+                           operation=client.RESPONSE)
+    return header + b"".join(client.packet(client.T_DEVICE_ROW, row, operation=client.RESPONSE)
+                             for row in rows)
+
+
+def _fan_row(address, polarity):
+    return bytes([address]) + FAN_ROW[1:41] + bytes([polarity]) + FAN_ROW[42:]
+
+
+def test_polarity_write_is_read_back(monkeypatch):
+    # After the write, the controller has switched the other fan of the pair as well
+    connection = RecordingConnection(_device_replies(_fan_row(1, 0), _fan_row(2, 1)))
+    devices = _client_with(monkeypatch, connection).set_polarity(2, client.POLARITY_EXTRACT)
+    assert [d["polarity"] for d in devices] == [0, 1]
+    write = connection.sent[0]
+    assert (write[3], write[4]) == (client.T_DEVICE_FIELD, client.UPDATE)
+    # Payload as sent to a real controller: field 32 of address 2, value 1
+    assert write[10:] == bytes.fromhex("ba0a07052000020001")
+    # Then the device list: header and one request per row
+    assert [packet[3] for packet in connection.sent[1:]] == [client.T_DEVICE_HEADER] + [client.T_DEVICE_ROW] * 2
+
+
+def test_polarity_write_not_stored(monkeypatch):
+    connection = RecordingConnection(_device_replies(_fan_row(1, 1), _fan_row(2, 0)))
+    with pytest.raises(ValueError, match="not stored"):
+        _client_with(monkeypatch, connection).set_polarity(2, client.POLARITY_EXTRACT)
+
+
+@pytest.mark.parametrize("address, polarity", [(2, 2), (2, -1), (0, 1), (client.MAX_DEVICES, 0)])
+def test_invalid_polarity_write_is_never_sent(monkeypatch, address, polarity):
+    connection = RecordingConnection(b"")
+    with pytest.raises(ValueError):
+        _client_with(monkeypatch, connection).set_polarity(address, polarity)
+    assert connection.sent == []
