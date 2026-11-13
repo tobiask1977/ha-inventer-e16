@@ -179,7 +179,7 @@ until you switch it off.
 
 - Support for several zones has been confirmed on installations with three and four zones;
   feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22) is welcome. Moving
-  devices between zones (#37) is new; feedback from installations with several zones is welcome.
+  fans between zones has been confirmed on two of them.
 - Custom profiles cannot be created or renamed (their time programs can be edited). Which ones
   have a time program is read once a day and after a change through the actions, so a program
   created in the app can take up to a day to show up. Reading takes up to a few seconds per
