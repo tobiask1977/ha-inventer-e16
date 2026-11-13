@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0b1 – unreleased (pre-release)
+## 0.5.0b1 – 2026-11-13 (pre-release)
 
 Pre-release for moving fans between zones; based on #37 by @Kadz93.
 
