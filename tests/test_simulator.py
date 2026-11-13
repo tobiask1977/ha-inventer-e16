@@ -213,6 +213,13 @@ def test_polarity_switches_the_other_fan_of_the_pair(monkeypatch):
     assert (devices[1]["polarity"], devices[2]["polarity"]) == (0, 1)
 
 
+def test_polarity_of_each_fan_on_its_own(monkeypatch):
+    # Seen on another controller (#38): the partner keeps its polarity
+    controller = sim.FakeController(zones=3, pairs_follow=False)
+    devices = {d["address"]: d for d in wired(monkeypatch, controller).set_polarity(2, client.POLARITY_EXTRACT)}
+    assert (devices[1]["polarity"], devices[2]["polarity"]) == (1, 1)
+
+
 def test_polarity_of_a_device_without_one_is_not_stored(monkeypatch):
     controller = sim.FakeController()
     controller.devices.append(sim.device_row(5, 4, 3, "Indoor", 5030008, signal=-53, battery=64.0))

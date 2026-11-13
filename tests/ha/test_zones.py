@@ -346,6 +346,16 @@ async def test_polarity_of_a_pair_can_be_changed(hass, monkeypatch):
     assert entry.state is ConfigEntryState.LOADED
 
 
+async def test_polarity_of_each_fan_on_its_own(hass, monkeypatch):
+    # Seen on another controller (#38): both fans of a pair can have the same polarity
+    controller = sim.FakeController(zones=3, pairs_follow=False)
+    controller.devices[2] = sim.device_row(2, 2, 2, "Fan 2", 5030009, polarity=0, signal=-54)
+    await _setup(hass, monkeypatch, controller)
+    fan1, fan2 = _entity(hass, "select", "1_polarity"), _entity(hass, "select", "2_polarity")
+    await _call(hass, "select", "select_option", fan2, option="extract")
+    assert (hass.states.get(fan1).state, hass.states.get(fan2).state) == ("extract", "extract")
+
+
 async def test_polarity_write_that_is_not_stored(hass, monkeypatch):
     controller = sim.FakeController()
     await _setup(hass, monkeypatch, controller)

@@ -21,8 +21,7 @@ over your Wi-Fi, without the manufacturer's cloud.
   fan, sensors, profile and buttons (see [Several zones](#several-zones)).
 - **Radio devices:** every fan and sensor becomes its own device with radio signal (not for
   devices on a cable), runtime, temperature, humidity, battery and problem flags. The polarity of
-  a fan (whether it starts with supply or extract air) can be changed; the controller switches the
-  other fan of the pair along.
+  a fan (whether it starts with supply or extract air) can be changed.
 - **Maintenance:** filter change and service with due date, days left, interval and *confirm*
   buttons.
 - **Firmware:** update entities for the Wi-Fi module, controller, fans and sensors. Installing
@@ -177,9 +176,11 @@ until you switch it off.
   have a time program is read once a day and after a change through the actions, so a program
   created in the app can take up to a day to show up. Reading takes up to a few seconds per
   profile; polls and commands wait for it.
-- Changing the polarity has been tested with one pair of fans. With more than two fans in a zone,
-  which fan the controller switches along is not known yet; feedback in
-  [#33](https://github.com/tobiask1977/ha-inventer-e16/issues/33) is welcome.
+- The polarity behaves differently between installations. On one controller (a pair with one fan
+  on a cable), changing one fan switched the other fan of the pair along. On another (two zones with
+  a pair each, #38), every fan switches on its own, so both fans of a pair can have the same
+  polarity, e.g. for cross ventilation. The integration only writes the fan you change and then
+  shows what the controller reports for all fans.
 - Firmware cannot be installed from Home Assistant.
 - Developed on one installation with two iV14 Zero fans and an indoor and outdoor sensor. Other
   fans on the e16 should work, but this hasn't been confirmed.

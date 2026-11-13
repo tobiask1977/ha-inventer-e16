@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Documentation: the polarity doesn't switch the other fan of a pair on every installation. On one
+  controller the partner switched along, on another every fan switches on its own (#38). The
+  integration only ever writes the fan you change.
+
 ## 0.4.1 – 2026-11-12
 
 - **Polarity can be changed** (#33): the polarity of a fan unit is now a select in its

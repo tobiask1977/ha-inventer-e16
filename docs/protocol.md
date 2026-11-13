@@ -211,10 +211,16 @@ Field id = device address × 65536 + field. The integration only writes field 32
 a fan unit (u8, 0 supply, 1 extract, the value at offset 41 of the device row). Like the other
 writes, it gets no reply; read the device rows back.
 
-Verified in November 2026 on one pair of fan units: writing the polarity of one fan unit switches
-the other fan of the pair to the opposite value as well. Both rows show the new values after one
-second, the app shows them too, and writing it back restores both. Which fan the controller
-switches along in a zone with more than two fan units is not known.
+Verified in November 2026 on two installations, with different results:
+
+- One zone with a pair of fan units, one of them on a cable: writing the polarity of one fan unit
+  switched the other fan of the pair to the opposite value as well. Both rows showed the new values
+  after one second, the app showed them too, and writing it back restored both.
+- Two zones with a pair each (#38): every fan unit switches on its own, so both fans of a pair can
+  have the same polarity, in heat recovery and in ventilation mode, checked at the fans.
+
+What makes the controller switch the partner along is not known (the fan on a cable is a
+guess).
 
 ### 142 DeviceViewRow (V5)
 
