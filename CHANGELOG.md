@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0 – 2026-11-13
+
+Stable release of 0.5.0b1, confirmed on two installations with several zones in #22. Based on #37
+by @Kadz93.
+
+- **Move fans between zones** (#37): with several zones, every fan unit has a *Zone* select, and
+  the action `inventer_e16.set_device_zone` moves a fan unit or indoor sensor to another zone and
+  reads it back. The controller and the outdoor sensor can't be moved. The fan follows the state
+  of its new zone at once.
+- **Named zones stay**: a zone with a name is in use even without devices, so fans can be moved
+  to it, as in the app. A controller with one zone in use and another named zone becomes a
+  controller with several zones.
+- A fan moved between zones in use (here or in the app) moves below its new zone without a
+  reload. The integration still reloads by itself when a radio device is added or removed, a zone
+  comes into use or goes out of use, or an indoor sensor moves.
+- New action `inventer_e16.get_devices`: the radio devices with address, type, zone, signal,
+  firmware and values, and the zones in use, e.g. for dashboard cards.
+- Documentation: the polarity doesn't switch the other fan of a pair on every installation (#38).
+  The integration only ever writes the fan you change.
+
 ## 0.5.0b1 – 2026-11-13 (pre-release)
 
 Pre-release for moving fans between zones; based on #37 by @Kadz93.
