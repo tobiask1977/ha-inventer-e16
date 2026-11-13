@@ -19,8 +19,9 @@ Behaviour seen on real controllers:
   are used). A command for one zone changes only that zone, and a cancel for one zone leaves its
   record at 74 as it was. Cancel for all zones writes its record into every zone, and the global
   boost keeps each zone's mode (seen on a controller with four zones, #22)
-- writing the polarity of a fan unit (DeviceRowField 32) switches the other fan of the pair to the
-  opposite value as well (seen with one pair, #33). A wired device reports 126 as signal.
+- writing the polarity of a fan unit (DeviceRowField 32): on one controller the other fan of the
+  pair switched to the opposite value as well (`pairs_follow`, #33), on another every fan switched
+  on its own (#38). A wired device reports 126 as signal.
 
 Assumed, not captured: which zone the status after a command belongs to on a controller with
 several zones (here the addressed zone, zone 1 for commands to all zones), that a global
@@ -263,8 +264,9 @@ class FakeController:
     """
 
     def __init__(self, playback_lag=0.0, ack_delay=0.0, apply_commands=True, store_programs=True,
-                 zones=1):
+                 zones=1, pairs_follow=True):
         self.playback_lag = playback_lag
+        self.pairs_follow = pairs_follow
         self.ack_delay = ack_delay
         self.apply_commands = apply_commands
         self.store_programs = store_programs
@@ -490,7 +492,7 @@ class FakeController:
         zone = self.devices[index][3]
         fans = [i for i, row in enumerate(self.devices) if row[1] in FAN_TYPES and row[3] == zone]
         self._set_polarity(index, value[0])
-        if len(fans) == 2:
+        if self.pairs_follow and len(fans) == 2:
             self._set_polarity(next(i for i in fans if i != index), 1 - value[0])
         return True
 

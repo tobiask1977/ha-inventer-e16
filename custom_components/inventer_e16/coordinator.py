@@ -208,7 +208,7 @@ class E16InfoCoordinator(DataUpdateCoordinator):
                 self.client.set_polarity, address, polarity)
         except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 setting failed: {error}") from error
-        # The other fan of the pair changed as well: take over all rows read back
+        # Some controllers switch the other fan of the pair along: take over all rows read back
         self.async_set_updated_data({**self.data, "devices": devices})
 
 

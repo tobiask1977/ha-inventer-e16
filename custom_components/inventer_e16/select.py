@@ -87,8 +87,8 @@ class E16Interval(E16Entity, SelectEntity):
 
 
 class E16Polarity(E16Entity, SelectEntity):
-    """Direction a fan unit starts in (#33). The controller keeps the two fans of a pair opposite,
-    so changing one changes its partner as well."""
+    """Direction a fan unit starts in (#33). Only this fan is written; some controllers switch the
+    other fan of the pair along (#38), and the select shows what the controller reports."""
     _attr_entity_category = EntityCategory.CONFIG
     _attr_options = list(POLARITIES.values())
 

@@ -390,14 +390,14 @@ class E16Client:
 
     def set_polarity(self, address, polarity):
         """Set the direction a fan unit starts in and return the radio devices read afterwards.
-        The controller does not answer the write, and it keeps the two fans of a pair opposite:
-        the partner changes as well."""
+        The controller does not answer the write. Some controllers switch the other fan of the pair
+        along, others don't (#38), so all rows are returned."""
         if polarity not in (POLARITY_SUPPLY, POLARITY_EXTRACT) or not 0 < address < MAX_DEVICES:
             raise ValueError(f"No polarity {polarity} for device {address}")
         payload = field_payload(address * 65536 + DF_POLARITY, bytes([polarity]))
         with self._connect() as connection, _malformed_as_value_error():
             connection.sendall(packet(T_DEVICE_FIELD, payload, operation=UPDATE))
-            # Measured: both fans of the pair show the new values after one second
+            # Measured: the new values show after one second
             time.sleep(1)
             devices = self._devices(connection)
         if next((d["polarity"] for d in devices if d["address"] == address), None) != polarity:
