@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
-# Copyright (c) 2026 Markus Hennig
 """Device mapping: the controller is the main device. With one zone it also carries the zone, as
 before multi-zone support. With several, every zone is a device below it, and each fan and sensor
 hangs below its zone."""
@@ -10,7 +9,7 @@ from .client import version_text
 from .const import CONF_DEVICE_ID, DOMAIN
 
 MODELS = {1: "Easy Connect e16", 2: "Fan unit (FCU)", 3: "Fan unit (FCU)",
-          4: "Indoor sensor", 5: "Outdoor sensor", 27: "iV-Twin+"}
+          4: "Indoor sensor", 5: "Outdoor sensor", 27: "Fan unit (iV-Twin+)"}
 INDOOR_SENSOR = 4
 # One outdoor sensor serves all zones: its values come from zone 1 and belong to the controller
 OUTDOOR_KEYS = {"outside_temperature", "outside_humidity", "dew_point_outside",

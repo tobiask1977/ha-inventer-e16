@@ -145,11 +145,11 @@
     },
     "set_device_zone": {
       "name": "Set device zone",
-      "description": "Assigns a radio device (fan or sensor) to a specific ventilation zone.",
+      "description": "Moves a fan unit or indoor sensor to another zone. The controller and the outdoor sensor can't be moved.",
       "fields": {
         "address": {
           "name": "Device address",
-          "description": "Bus address of the device (0-31)."
+          "description": "Bus address of the device (1-31), shown by get_devices."
         },
         "zone": {
           "name": "Zone ID",

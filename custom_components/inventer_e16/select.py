@@ -7,14 +7,7 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.restore_state import RestoreEntity
 
-try:
-    from homeassistant.helpers import device_registry as dr, entity_registry as er
-except ImportError:
-    dr = None
-    er = None
-
 from . import client
-from .const import CONF_DEVICE_ID, DOMAIN
 from .entity import E16Entity
 
 # VentilationProfile values. Custom profiles appear when they have a time program or are active,
@@ -45,10 +38,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
           for device in data.info.data["devices"]
           if device["type"] in client.FAN_DEVICE_TYPES),
     ]
-    if data.info.data and "devices" in data.info.data:
-        for device in data.info.data["devices"]:
-            if device["type"] in client.FAN_DEVICE_TYPES or device["type"] == 27:
-                entities.append(E16DeviceZone(data.info, entry, device))
+    # Moving fans between zones only makes sense with several zones in use (a device or a name)
+    if data.zone.multi_zone:
+        entities += [E16DeviceZone(data.info, entry, "zone", device, data.zone)
+                     for device in data.info.data["devices"]
+                     if device["type"] in client.FAN_DEVICE_TYPES | {27}]
     async_add_entities(entities)
 
 
@@ -119,139 +113,38 @@ class E16Polarity(E16Entity, SelectEntity):
 
 
 class E16DeviceZone(E16Entity, SelectEntity):
-    """Zone assignment for a fan on the radio bus."""
+    """Zone of a fan unit (#37): choosing another zone moves the fan there. Offers the zones in use,
+    which includes named zones without devices."""
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, entry, device):
-        super().__init__(coordinator, entry, "zone", device=device)
-        self._entry = entry
+    def __init__(self, coordinator, entry, key, device, zones):
+        super().__init__(coordinator, entry, key, device)
+        self.zones = zones
 
-    def _find_fan_entity_id(self) -> str | None:
-        """Find a fan entity ID belonging to this integration entry."""
-        if not self.hass or not er:
-            return None
-        registry = er.async_get(self.hass)
-        entries = er.async_entries_for_config_entry(registry, self._entry.entry_id)
-        for e in entries:
-            if e.domain == "fan":
-                return e.entity_id
-        return None
+    def _label(self, zone_id):
+        zone = (self.zones.data or {}).get(zone_id)
+        name = zone["name"].strip() if zone else ""
+        return f"Zone {zone_id} - {name}" if name and name.lower() != f"zone {zone_id}" else f"Zone {zone_id}"
 
-    def _get_available_zones(self) -> list[int]:
-        """Max 4 zones: show only zones with name or registered in Home Assistant."""
-        data = getattr(self._entry, "runtime_data", None)
-        if not data or not getattr(data, "zone", None):
-            return [1]
-        available = set()
-        zone_data = data.zone.data or {}
-        main = self._entry.data.get(CONF_DEVICE_ID) if self._entry else None
-        registry = dr.async_get(self.hass) if (self.hass and dr) else None
-
-        for zid in data.zone.zone_ids:
-            if not (1 <= zid <= client.MAX_ZONES):
-                continue
-            has_name = bool(zone_data.get(zid, {}).get("name") and str(zone_data[zid]["name"]).strip())
-            is_registered = False
-            if registry and main:
-                is_registered = bool(
-                    registry.async_get_device(identifiers={(DOMAIN, f"{main}_zone{zid}")})
-                    or registry.async_get_device(identifiers={(DOMAIN, f"{main}_z{zid}")})
-                    or (zid == 1 and registry.async_get_device(identifiers={(DOMAIN, main)}))
-                )
-            if has_name or is_registered or zid == 1:
-                available.add(zid)
-
-        current = self.device_row()
-        if current and current.get("zone") and 1 <= current["zone"] <= client.MAX_ZONES:
-            available.add(current["zone"])
-
-        return sorted(available)
-
-    def _zone_options_map(self) -> dict[int, str]:
-        """Map available zone IDs (1-4) to user-facing option labels including zone names."""
-        data = getattr(self._entry, "runtime_data", None)
-        zone_data = (data.zone.data or {}) if (data and getattr(data, "zone", None)) else {}
-        available = self._get_available_zones()
-        mapping = {}
-        for zid in available:
-            name = zone_data.get(zid, {}).get("name")
-            if name and str(name).strip() and str(name).strip().lower() != f"zone {zid}".lower():
-                mapping[zid] = f"Zone {zid} - {str(name).strip()}"
-            else:
-                mapping[zid] = f"Zone {zid}"
-        return mapping
+    def _zone_ids(self):
+        row = self.device_row()
+        current = {row["zone"]} if row and 1 <= row["zone"] <= client.MAX_ZONES else set()
+        return sorted(set(self.zones.zone_ids) | current)
 
     @property
-    def options(self) -> list[str]:
-        return list(self._zone_options_map().values())
+    def options(self):
+        return [self._label(zone_id) for zone_id in self._zone_ids()]
 
     @property
-    def current_option(self) -> str | None:
-        device = self.device_row()
-        if device and device.get("zone") is not None:
-            zid = device["zone"]
-            mapping = self._zone_options_map()
-            if zid in mapping:
-                return mapping[zid]
-            data = getattr(self._entry, "runtime_data", None)
-            zone_data = (data.zone.data or {}) if (data and getattr(data, "zone", None)) else {}
-            name = zone_data.get(zid, {}).get("name")
-            if name and str(name).strip() and str(name).strip().lower() != f"zone {zid}".lower():
-                return f"Zone {zid} - {str(name).strip()}"
-            return f"Zone {zid}"
-        return None
+    def current_option(self):
+        row = self.device_row()
+        return self._label(row["zone"]) if row and 1 <= row["zone"] <= client.MAX_ZONES else None
 
     @property
-    def extra_state_attributes(self) -> dict:
-        device = self.device_row()
-        zone_id = device.get("zone") if device else None
-        data = getattr(self._entry, "runtime_data", None)
-        zone_name = None
-        if data and getattr(data, "zone", None) and data.zone.data and zone_id in data.zone.data:
-            zone_name = data.zone.data[zone_id].get("name")
-        return {
-            "address": self.address,
-            "zone_id": zone_id,
-            "zone_name": zone_name,
-            "available_zones": self._zone_options_map(),
-        }
+    def extra_state_attributes(self):
+        row = self.device_row()
+        return {"address": self.address, "zone_id": row["zone"] if row else None}
 
-    async def async_get_devices(self, refresh: bool = False) -> dict | None:
-        """Call get_devices service to fetch devices and zones."""
-        fan_entity_id = self._find_fan_entity_id()
-        if fan_entity_id and self.hass and self.hass.services.has_service(DOMAIN, "get_devices"):
-            return await self.hass.services.async_call(
-                DOMAIN,
-                "get_devices",
-                {"refresh": refresh},
-                target={"entity_id": fan_entity_id},
-                blocking=True,
-                return_response=True,
-            )
-        return None
-
-    async def async_select_option(self, option: str) -> None:
-        mapping = self._zone_options_map()
-        target_zone = next((zid for zid, label in mapping.items() if label == option), None)
-        if target_zone is None:
-            for zid in mapping:
-                if str(zid) == option.strip() or option.strip().startswith(f"Zone {zid}"):
-                    target_zone = zid
-                    break
-        if target_zone is None:
-            try:
-                target_zone = int(option.split()[1].rstrip("-:"))
-            except (IndexError, ValueError) as err:
-                raise ValueError(f"Unknown zone option: {option}") from err
-
-        fan_entity_id = self._find_fan_entity_id()
-        if fan_entity_id and self.hass and self.hass.services.has_service(DOMAIN, "set_device_zone"):
-            await self.hass.services.async_call(
-                DOMAIN,
-                "set_device_zone",
-                {"address": self.address, "zone": target_zone},
-                target={"entity_id": fan_entity_id},
-                blocking=True,
-            )
-        else:
-            await self.coordinator.async_set_device_zone(self.address, target_zone)
+    async def async_select_option(self, option):
+        zone_id = next(zone_id for zone_id in self._zone_ids() if self._label(zone_id) == option)
+        await self.coordinator.async_set_device_zone(self.address, zone_id)

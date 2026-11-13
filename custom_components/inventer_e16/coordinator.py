@@ -203,40 +203,21 @@ class E16InfoCoordinator(DataUpdateCoordinator):
             raise HomeAssistantError(f"e16 setting failed: {error}") from error
         await self.async_request_refresh()
 
-    async def async_set_device_zone(self, address: int, zone_id: int):
-        LOGGER.debug("e16 set device %s to zone %s", address, zone_id)
-        try:
-            await self.hass.async_add_executor_job(self.client.set_device_zone, address, zone_id)
-        except (E16AuthError, OSError, ValueError) as error:
-            raise HomeAssistantError(f"Setting device zone failed: {error}") from error
-        # The controller confirmed the change; update the cached data immediately
-        # so get_devices returns the new zone without waiting for the next 10-min poll.
-        if self.data and "devices" in self.data:
-            for d in self.data["devices"]:
-                if d["address"] == address:
-                    d["zone"] = zone_id
-            self.async_set_updated_data(dict(self.data))
-        try:
-            from homeassistant.helpers import device_registry as dr
-            from .const import CONF_DEVICE_ID, DOMAIN
-            data = getattr(self.config_entry, "runtime_data", None)
-            if data and hasattr(data, "zone_device_ids"):
-                registry = dr.async_get(self.hass)
-                main = self.config_entry.data[CONF_DEVICE_ID]
-                target_via = data.zone_device_ids.get(zone_id, data.main_device_id)
-                dev = registry.async_get_device(identifiers={(DOMAIN, f"{main}_{address}")})
-                if dev and dev.via_device_id != target_via:
-                    registry.async_update_device(dev.id, via_device_id=target_via)
-        except Exception as err:
-            LOGGER.debug("Could not update device via_device_id: %s", err)
+    async def async_set_device_zone(self, address, zone_id):
+        # The layout listener moves the device below its new zone, or reloads for a new zone
+        await self._async_set_device_field(self.client.set_device_zone, address, zone_id)
 
     async def async_set_polarity(self, address, polarity):
+        # Some controllers switch the other fan of the pair along: all rows are taken over
+        await self._async_set_device_field(self.client.set_polarity, address, polarity)
+
+    async def _async_set_device_field(self, method, *args):
+        """Write a field of a radio device and take over all device rows read back."""
+        LOGGER.debug("e16 device setting %s%s", method.__name__, args)
         try:
-            devices = await self.hass.async_add_executor_job(
-                self.client.set_polarity, address, polarity)
+            devices = await self.hass.async_add_executor_job(method, *args)
         except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 setting failed: {error}") from error
-        # Some controllers switch the other fan of the pair along: take over all rows read back
         self.async_set_updated_data({**self.data, "devices": devices})
 
 

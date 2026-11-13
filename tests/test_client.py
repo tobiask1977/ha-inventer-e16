@@ -268,44 +268,6 @@ def test_device_field_payload():
     assert client.field_payload(2 * 65536 + client.DF_ZONE, b"\x03").hex() == "ba0a07050100020003"
 
 
-def test_set_device_zone(monkeypatch):
-    row_reply = bytes([2]) + FAN_ROW[1:3] + bytes([3]) + FAN_ROW[4:]
-    header_packet = client.packet(client.T_DEVICE_HEADER, struct.pack("<BH", 1, 5), operation=client.RESPONSE)
-    row_packet = client.packet(client.T_DEVICE_ROW, row_reply, operation=client.RESPONSE)
-    connection = RecordingConnection(header_packet + row_packet)
-    c = _client_with(monkeypatch, connection)
-    dev = c.set_device_zone(2, 3)
-    assert dev["address"] == 2
-    assert dev["zone"] == 3
-    assert len(connection.sent) == 3
-    sent = connection.sent[0]
-    assert sent[3] == client.T_DEVICE_FIELD
-    assert sent[4] == client.UPDATE
-    assert sent[10:] == client.field_payload(2 * 65536 + client.DF_ZONE, bytes([3]))
-
-
-def test_set_device_zone_not_stored(monkeypatch):
-    row_reply = bytes([2]) + FAN_ROW[1:3] + bytes([1]) + FAN_ROW[4:]
-    header_packet = client.packet(client.T_DEVICE_HEADER, struct.pack("<BH", 1, 5), operation=client.RESPONSE)
-    row_packet = client.packet(client.T_DEVICE_ROW, row_reply, operation=client.RESPONSE)
-    connection = RecordingConnection(header_packet + row_packet)
-    c = _client_with(monkeypatch, connection)
-    with pytest.raises(ValueError):
-        c.set_device_zone(2, 3)
-
-
-def test_set_device_zone_validation(monkeypatch):
-    c = _client_with(monkeypatch, FakeConnection(b""))
-    with pytest.raises(ValueError):
-        c.set_device_zone(-1, 1)
-    with pytest.raises(ValueError):
-        c.set_device_zone(client.MAX_DEVICES, 1)
-    with pytest.raises(ValueError):
-        c.set_device_zone(1, 0)
-    with pytest.raises(ValueError):
-        c.set_device_zone(1, client.MAX_ZONES + 1)
-
-
 def _device_replies(*rows):
     header = client.packet(client.T_DEVICE_HEADER, struct.pack("<BH", len(rows), 5),
                            operation=client.RESPONSE)
@@ -341,4 +303,46 @@ def test_invalid_polarity_write_is_never_sent(monkeypatch, address, polarity):
     connection = RecordingConnection(b"")
     with pytest.raises(ValueError):
         _client_with(monkeypatch, connection).set_polarity(address, polarity)
+    assert connection.sent == []
+
+
+def _zone_row(address, zone, device_type=2):
+    return bytes([address, device_type]) + FAN_ROW[2:3] + bytes([zone]) + FAN_ROW[4:]
+
+
+def test_device_zone_write_checks_the_type_and_is_read_back(monkeypatch):
+    before = _device_replies(_zone_row(1, 1), _zone_row(2, 1))
+    connection = RecordingConnection(before + _device_replies(_zone_row(1, 1), _zone_row(2, 3)))
+    devices = _client_with(monkeypatch, connection).set_device_zone(2, 3)
+    assert [d["zone"] for d in devices] == [1, 3]
+    # Device list, the write, device list again
+    types = [packet[3] for packet in connection.sent]
+    assert types == [client.T_DEVICE_HEADER, client.T_DEVICE_ROW, client.T_DEVICE_ROW,
+                     client.T_DEVICE_FIELD, client.T_DEVICE_HEADER, client.T_DEVICE_ROW, client.T_DEVICE_ROW]
+    write = connection.sent[3]
+    assert write[4] == client.UPDATE
+    assert write[10:] == client.field_payload(2 * 65536 + client.DF_ZONE, bytes([3]))
+
+
+def test_device_zone_write_not_stored(monkeypatch):
+    rows = _device_replies(_zone_row(2, 1))
+    connection = RecordingConnection(rows + rows)
+    with pytest.raises(ValueError, match="not moved"):
+        _client_with(monkeypatch, connection).set_device_zone(2, 3)
+
+
+@pytest.mark.parametrize("address, device_type", [(0, 1), (4, 5), (9, 2)])
+def test_controller_outdoor_sensor_and_unknown_devices_are_never_moved(monkeypatch, address, device_type):
+    # The controller, the outdoor sensor (it serves all zones) and an address without a device
+    connection = RecordingConnection(_device_replies(_zone_row(address if address != 9 else 1, 1, device_type)))
+    with pytest.raises(ValueError, match="can't be moved"):
+        _client_with(monkeypatch, connection).set_device_zone(address, 2)
+    assert client.T_DEVICE_FIELD not in [packet[3] for packet in connection.sent]
+
+
+@pytest.mark.parametrize("zone", [0, client.MAX_ZONES + 1])
+def test_device_zone_outside_the_zones_is_never_sent(monkeypatch, zone):
+    connection = RecordingConnection(b"")
+    with pytest.raises(ValueError):
+        _client_with(monkeypatch, connection).set_device_zone(2, zone)
     assert connection.sent == []

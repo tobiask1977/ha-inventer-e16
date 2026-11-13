@@ -88,8 +88,9 @@ permanent changes, select another profile or edit its time program.
 
 ### Several zones
 
-With several zones, every zone with fans or sensors assigned, zone 1 included, becomes its own
-device below the controller. Each zone has its own fan, buttons, profile, command duration and
+With several zones, every zone with fans or sensors assigned or with a name, zone 1 included,
+becomes its own device below the controller. A named zone stays even without devices, so fans can
+be moved to it, as in the app. Each zone has its own fan, buttons, profile, command duration and
 sensors, and its commands go to that zone only. The fans of a zone always run together, so there
 are no controls for single fans. The controller device, then named *inVENTer Easy Connect e16*,
 keeps what applies to all zones: filter and service, firmware, Wi-Fi, alarms and the outdoor
@@ -104,8 +105,13 @@ values. Zone 1 always has the indoor values; zones 2–4 only with an indoor sen
   zone on or *Resume profile* ends it in all zones.
 - Time programs belong to a profile, not to a zone: editing one changes every zone that uses
   that profile.
-- When a radio device is added, removed or moved to another zone, the integration reloads by
-  itself. Zones and devices the controller no longer reports can be deleted on their device page.
+- Every fan unit has a *Zone* select (only with several zones), and the action
+  `inventer_e16.set_device_zone` moves a fan unit or indoor sensor to another zone. The controller
+  and the outdoor sensor can't be moved.
+- A fan moved between zones in use, here or in the app, moves below its new zone without a
+  reload. When a radio device is added or removed, a zone comes into use or goes out of use, or an
+  indoor sensor moves, the integration reloads by itself. Zones and devices the controller no
+  longer reports can be deleted on their device page.
 
 ### Actions
 
@@ -115,8 +121,8 @@ values. Zone 1 always has the indoor values; zones 2–4 only with an indoor sen
 | `inventer_e16.get_time_program` | Returns the time program of a profile (default: the current one) |
 | `inventer_e16.set_time_program_entry` | Writes one entry (0–31) of a profile's time program and reads it back |
 | `inventer_e16.delete_time_program_entry` | Deletes one entry |
-| `inventer_e16.get_devices` | Returns detected radio devices and zones from the controller |
-| `inventer_e16.set_device_zone` | Assigns a radio device (address 0–31) to a zone (1–4) |
+| `inventer_e16.get_devices` | Returns the radio devices (address, type, zone, signal, firmware, values) and the zones in use |
+| `inventer_e16.set_device_zone` | Moves a fan unit or indoor sensor (address from `get_devices`) to another zone (1–4) and reads it back |
 
 A pause that ends by itself after 30 minutes:
 
@@ -171,9 +177,9 @@ until you switch it off.
 
 ## Limitations
 
-- Support for several zones has been confirmed on two installations with three and four zones;
-  feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22) is welcome. Radio
-  devices can be moved between zones using the `inventer_e16.set_device_zone` action.
+- Support for several zones has been confirmed on installations with three and four zones;
+  feedback in [#22](https://github.com/tobiask1977/ha-inventer-e16/issues/22) is welcome. Moving
+  devices between zones (#37) is new; feedback from installations with several zones is welcome.
 - Custom profiles cannot be created or renamed (their time programs can be edited). Which ones
   have a time program is read once a day and after a change through the actions, so a program
   created in the app can take up to a day to show up. Reading takes up to a few seconds per

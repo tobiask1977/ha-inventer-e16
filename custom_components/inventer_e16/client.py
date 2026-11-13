@@ -61,9 +61,6 @@ F_FILTER_RESET, F_SERVICE_RESET = 32768, 32769
 F_FAN_SPEED_1, F_FAN_AUTO_DIRECTION = 32, 36
 RESET_MAGIC = {F_FILTER_RESET: 0x46768482, F_SERVICE_RESET: 0x83698286}
 
-# DeviceRowField ids: address * 65536 + field
-DF_ZONE = 1
-
 # ZoneRowField ids: zone_id * 65536 + field; fields 2-6 are float32 LE
 ZF_NAME, ZF_PROFILE = 0, 1
 ZF_COMFORT_ROOM, ZF_COMFORT_OUTSIDE, ZF_RH_THRESHOLD, ZF_CO2_THRESHOLD, ZF_VOC_THRESHOLD = 2, 3, 4, 5, 6
@@ -88,8 +85,11 @@ BATTERY_DEVICE_TYPES = {4, 5, 12}
 # Fan units carry their polarity at offset 41: the direction they start in, 0 = supply, 1 = extract
 FAN_DEVICE_TYPES = {2, 3}
 POLARITY_SUPPLY, POLARITY_EXTRACT = 0, 1
-# DeviceRowField ids: address * 65536 + field. Only the polarity is ever written.
-DF_POLARITY = 32
+# DeviceRowField ids: address * 65536 + field. Only the zone and the polarity are ever written.
+DF_ZONE, DF_POLARITY = 1, 32
+# Devices that can be moved to another zone: fan units (27 = iV-Twin+) and indoor sensors. Not the
+# controller, and not the outdoor sensor, which serves all zones (zone 0).
+MOVABLE_DEVICE_TYPES = {2, 3, 4, 27}
 # DeviceViewRow.signal of a device on a cable instead of a radio level in dBm
 SIGNAL_WIRED = 126
 # A controller has a handful of radio devices; cap what a (faulty) reply can make us query
@@ -257,19 +257,15 @@ def parse_device(data):
     }
 
 
-def zones_in_use(devices, zones=None, known_zones=None):
-    """Zone 1, every zone with a radio device assigned, a configured name, or already known in HA."""
+def zones_in_use(devices, zones=None):
+    """Zone 1, every zone with a radio device assigned, and every zone with a name in `zones`
+    ({zone_id: zone status}). A named zone stays in use without devices, so that devices can be
+    moved to it, as in the app (#37). Every zone answers, used or not (an unused one with an empty
+    name and speed 0); the device rows carry the zone."""
     used = {1} | {device["zone"] for device in devices
-                 if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}
-    if zones:
-        if isinstance(zones, dict):
-            used |= {zid for zid, z in zones.items()
-                     if isinstance(z, dict) and z.get("name") and z["name"].strip()}
-        elif isinstance(zones, (list, tuple)):
-            used |= {z.get("zone_id", idx + 1) for idx, z in enumerate(zones)
-                     if isinstance(z, dict) and z.get("name") and z["name"].strip()}
-    if known_zones:
-        used |= set(known_zones)
+                  if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}
+    used |= {zone_id for zone_id, zone in (zones or {}).items()
+             if 1 <= zone_id <= MAX_ZONES and zone["name"].strip()}
     return tuple(sorted(used))
 
 
@@ -460,24 +456,19 @@ class E16Client:
                             zone_ids or (zone_id,))
 
     def set_device_zone(self, address, zone_id):
-        """Assign a device (address 0..MAX_DEVICES - 1) to a zone (1..MAX_ZONES) and verify."""
-        if not (0 <= address < MAX_DEVICES):
-            raise ValueError(f"Invalid device address: {address}")
-        if not (1 <= zone_id <= MAX_ZONES):
-            raise ValueError(f"Invalid zone ID: {zone_id}")
+        """Move a fan unit or indoor sensor to another zone (#37) and return the radio devices
+        read afterwards. The device type is checked on the controller first: the controller and
+        the outdoor sensor are never moved."""
+        if not 1 <= zone_id <= MAX_ZONES:
+            raise ValueError(f"No zone {zone_id}")
         payload = field_payload(address * 65536 + DF_ZONE, bytes([zone_id]))
         with self._connect() as connection, _malformed_as_value_error():
+            device = next((d for d in self._devices(connection) if d["address"] == address), None)
+            if device is None or device["type"] not in MOVABLE_DEVICE_TYPES:
+                raise ValueError(f"Device {address} can't be moved to another zone")
             connection.sendall(packet(T_DEVICE_FIELD, payload, operation=UPDATE))
-            time.sleep(0.5)
-            count = min(self._request(connection, T_DEVICE_HEADER)[0], MAX_DEVICES)
-            device = None
-            for index in range(count):
-                row = parse_device(self._request(connection, T_DEVICE_ROW, bytes([index])))
-                if row["address"] == address:
-                    device = row
-                    break
-        if not device:
-            raise ValueError(f"Device {address} not found")
-        if device["zone"] != zone_id:
-            raise ValueError(f"Device {address} zone was not changed to {zone_id}")
-        return device
+            time.sleep(1)
+            devices = self._devices(connection)
+        if next((d["zone"] for d in devices if d["address"] == address), None) != zone_id:
+            raise ValueError(f"Device {address} was not moved to zone {zone_id}")
+        return devices

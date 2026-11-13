@@ -20,7 +20,9 @@ PRESET_TO_FAN = {HEAT_RECOVERY: client.FAN_HEAT_RECOVERY, VENTILATION: client.FA
 # Zone status reports 1 = ventilation, 2 = heat recovery (other table than the command)
 READ_MODE_TO_PRESET = {1: VENTILATION, 2: HEAT_RECOVERY}
 SPEEDS = 4
-HARDWARE_TYPES = {1: "controller", 2: "fan", 3: "sensor", 6: "wifi"}
+# Hardware types of the device rows and the firmware catalog, for get_devices
+HARDWARE_TYPES = {client.HW_MZCU: "controller", client.HW_FCU: "fan", client.HW_SENSORS: "sensor",
+                  client.HW_ESP32: "wifi"}
 # Service set_mode: time-limited command with explicit mode, speed and duration - for automations.
 # The pause modes are what the app's mode dialog sends (always with speed 0); unlike turn_off they end.
 SET_MODE_MODES = {HEAT_RECOVERY: client.FAN_HEAT_RECOVERY, VENTILATION: client.FAN_VENTILATION,
@@ -101,7 +103,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     entity_platform.async_get_current_platform().async_register_entity_service(
         "set_device_zone",
         {
-            vol.Required("address"): vol.All(vol.Coerce(int), vol.Range(min=0, max=client.MAX_DEVICES - 1)),
+            # Address 0 is the controller itself
+            vol.Required("address"): vol.All(vol.Coerce(int), vol.Range(min=1, max=client.MAX_DEVICES - 1)),
             vol.Required("zone"): vol.All(vol.Coerce(int), vol.Range(min=1, max=client.MAX_ZONES)),
         },
         "async_set_device_zone",
@@ -119,6 +122,7 @@ class E16Fan(E16Entity, FanEntity):
     def __init__(self, coordinator, entry, key, zone_id=None):
         super().__init__(coordinator, entry, key, zone_id=zone_id)
         self._entry = entry
+
     @property
     def is_on(self):
         # Not from playback: after a command it often lags behind for a poll or longer, while
@@ -230,7 +234,8 @@ class E16Fan(E16Entity, FanEntity):
                 "zone_name": zone_names.get(d["zone"]),
                 "status": d["status"],
                 "online": bool(d["status"] & client.DEV_ONLINE),
-                "signal": d["signal"] if d.get("signal") is not None and d["signal"] < 0 else None,
+                "signal": d["signal"] if d["signal"] < 0 else None,
+                "wired": d["wired"],
                 "firmware": client.version_text(d["firmware"]) if d.get("firmware") else None,
                 "temperature": d.get("temperature"),
                 "humidity": d.get("humidity"),
@@ -252,4 +257,3 @@ class E16Fan(E16Entity, FanEntity):
         data = self._entry.runtime_data
         await data.info.async_set_device_zone(address, zone)
         return {"success": True, "address": address, "zone": zone}
-

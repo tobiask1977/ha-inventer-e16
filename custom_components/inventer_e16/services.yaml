@@ -176,7 +176,7 @@ set_device_zone:
       required: true
       selector:
         number:
-          min: 0
+          min: 1
           max: 31
           mode: box
     zone:
@@ -186,5 +186,3 @@ set_device_zone:
           min: 1
           max: 4
           mode: box
-
-
