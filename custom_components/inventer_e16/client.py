@@ -261,7 +261,8 @@ def zones_in_use(devices, zones=None):
     """Zone 1, every zone with a radio device assigned, and every zone with a name in `zones`
     ({zone_id: zone status}). A named zone stays in use without devices, so that devices can be
     moved to it, as in the app (#37). Every zone answers, used or not (an unused one with an empty
-    name and speed 0); the device rows carry the zone."""
+    name; its speed can be left over from a fan moved there and back); the device rows carry the
+    zone."""
     used = {1} | {device["zone"] for device in devices
                   if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}
     used |= {zone_id for zone_id, zone in (zones or {}).items()
