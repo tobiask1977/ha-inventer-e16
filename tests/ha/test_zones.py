@@ -173,23 +173,46 @@ async def test_resume_during_a_pause_for_all_zones_ends_it_everywhere(hass, monk
     assert _last_command(controller) == (client.CMD_CANCEL, 0, client.FAN_OFF, 3, 0)
 
 
-async def test_moved_device_reloads_and_stale_zone_can_be_deleted(hass, monkeypatch):
-    from custom_components.inventer_e16 import async_remove_config_entry_device
-    controller = sim.FakeController(zones=3)
+async def test_fan_moves_between_zones_in_use_without_a_reload(hass, monkeypatch):
+    controller = sim.FakeController(zones=3)  # fans 1 and 2 in zone 1, 3 in zone 2, 4 in zone 3
     entry = await _setup(hass, monkeypatch, controller)
-    registry = dr.async_get(hass)
-    zone2 = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_zone2"), entry.entry_id)
-    zone3 = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_zone3"), entry.entry_id)
-    # The only fan of zone 3 (address 4) moves to zone 2
-    controller.devices[4] = sim.device_row(4, 2, 2, "Fan 4", 5030009, zone=2)
-    await entry.runtime_data.info.async_refresh()
+    data, zone2 = entry.runtime_data, _device(hass, entry, "_zone2")
+    # Moved with the action: below zone 2 at once, without a reload (same runtime data)
+    await _call(hass, DOMAIN, "set_device_zone", _entity(hass, "fan", "fan"), address=2, zone=2)
     await hass.async_block_till_done()
-    assert entry.runtime_data.zone.zone_ids == (1, 2)
-    fan4 = registry.async_get_device_by_identifier((DOMAIN, f"{DEVICE_ID}_4"), entry.entry_id)
-    assert fan4.via_device_id == zone2.id
-    assert await async_remove_config_entry_device(hass, entry, zone3) is True
-    assert await async_remove_config_entry_device(hass, entry, zone2) is False
-    assert await async_remove_config_entry_device(hass, entry, fan4) is False
+    assert entry.runtime_data is data
+    assert _device(hass, entry, "_2").via_device_id == zone2.id
+    # Moved in the app: below its new zone with the next poll
+    controller.devices[1] = sim.device_row(1, 2, 2, "Fan 1", 5030009, zone=2)
+    await data.info.async_refresh()
+    await hass.async_block_till_done()
+    assert entry.runtime_data is data
+    assert _device(hass, entry, "_1").via_device_id == zone2.id
+
+
+async def test_named_zone_stays_without_devices_and_an_unnamed_one_can_be_deleted(hass, monkeypatch):
+    from custom_components.inventer_e16 import async_remove_config_entry_device
+    controller = sim.FakeController(zones=4)  # one fan each in zones 2, 3 and 4, all named
+    entry = await _setup(hass, monkeypatch, controller)
+    data = entry.runtime_data
+    # The only fan of zone 3 moves to zone 2: zone 3 keeps its name, so it stays a target
+    controller.devices[4] = sim.device_row(4, 2, 2, "Fan 4", 5030009, zone=2)
+    await data.info.async_refresh()
+    await hass.async_block_till_done()
+    assert entry.runtime_data is data and data.zone.zone_ids == (1, 2, 3, 4)
+    zone3 = _device(hass, entry, "_zone3")
+    assert await async_remove_config_entry_device(hass, entry, zone3) is False
+    # Zone 4 has no name and loses its only fan: out of use, reload, and it can be deleted
+    controller.zones[4].name = ""
+    controller.devices[5] = sim.device_row(5, 2, 2, "Fan 5", 5030009, zone=2)
+    await data.zone.async_refresh()
+    await data.info.async_refresh()
+    await hass.async_block_till_done()
+    assert entry.runtime_data is not data and entry.runtime_data.zone.zone_ids == (1, 2, 3)
+    zone4 = _device(hass, entry, "_zone4")
+    assert await async_remove_config_entry_device(hass, entry, zone4) is True
+    assert await async_remove_config_entry_device(hass, entry, zone3) is False
+    assert _device(hass, entry, "_5").via_device_id == _device(hass, entry, "_zone2").id
 
 
 async def test_second_zone_moves_zone_1_to_a_device_of_its_own_and_back(hass, monkeypatch):
@@ -200,7 +223,7 @@ async def test_second_zone_moves_zone_1_to_a_device_of_its_own_and_back(hass, mo
     area = ar.async_get(hass).async_create("Living room")
     dr.async_get(hass).async_update_device(main.id, area_id=area.id)
     fan_entity = _entity(hass, "fan", "fan")
-    # Fan 4 moves to zone 2: the entry reloads with two zones
+    # Fan 4 moves to zone 2, which has no name: the entry reloads with two zones
     controller.zones[2].used = True
     controller.devices[4] = sim.device_row(4, 2, 2, "Fan 4", 5030009, zone=2)
     await entry.runtime_data.info.async_refresh()
@@ -236,6 +259,25 @@ async def test_new_zone_reloads_the_entry(hass, monkeypatch):
     await hass.async_block_till_done()
     assert entry.runtime_data.zone.zone_ids == (1, 2, 3)
     _entity(hass, "fan", "zone3_fan")
+
+
+async def test_zone_select_only_with_several_zones(hass, monkeypatch):
+    controller = sim.FakeController()
+    await _setup(hass, monkeypatch, controller)
+    assert er.async_get(hass).async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_1_zone") is None
+
+
+async def test_a_named_zone_without_devices_is_a_target(hass, monkeypatch):
+    controller = sim.FakeController()
+    controller.zones[2].used, controller.zones[2].name = True, "Bedroom"
+    entry = await _setup(hass, monkeypatch, controller)
+    assert entry.runtime_data.zone.zone_ids == (1, 2)
+    zone_select = _entity(hass, "select", "2_zone")
+    assert hass.states.get(zone_select).attributes["options"] == ["Zone 1", "Zone 2 - Bedroom"]
+    await _call(hass, "select", "select_option", zone_select, option="Zone 2 - Bedroom")
+    await hass.async_block_till_done()
+    assert controller.devices[2][3] == 2
+    assert _device(hass, entry, "_2").via_device_id == _device(hass, entry, "_zone2").id
 
 
 @pytest.mark.parametrize("zones", [1, 3])
@@ -376,3 +418,31 @@ async def test_wired_devices_have_no_radio_signal(hass, monkeypatch):
     assert hass.states.get(_entity(hass, "sensor", "2_signal")).state == "-54"
     # The wired fan keeps its other entities
     _entity(hass, "select", "1_polarity")
+
+
+async def test_fan_units_have_zone_select_entity(hass, monkeypatch):
+    controller = sim.FakeController(zones=2)
+    controller.zones[1].name = "Living room"
+    controller.zones[2].name = "Bedroom"
+    controller.devices[2] = sim.device_row(2, 2, 2, "Fan 2", 5030009, zone=1)
+    entry = await _setup(hass, monkeypatch, controller)
+    fan2_zone_select = _entity(hass, "select", "2_zone")
+    state = hass.states.get(fan2_zone_select)
+    assert state is not None
+    assert state.state == "Zone 1 - Living room"
+    assert "Zone 1 - Living room" in state.attributes["options"]
+    assert "Zone 2 - Bedroom" in state.attributes["options"]
+
+    # Select another zone using select_option
+    await _call(hass, "select", "select_option", fan2_zone_select, option="Zone 2 - Bedroom")
+    assert hass.states.get(fan2_zone_select).state == "Zone 2 - Bedroom"
+    assert controller.devices[2][3] == 2
+
+    # Controller (address 0) does not get a zone select entity
+    assert er.async_get(hass).async_get_entity_id("select", DOMAIN, f"{DEVICE_ID}_0_zone") is None
+
+    # Switch back using the set_device_zone service
+    fan_entity = _entity(hass, "fan", "fan")
+    await _call(hass, DOMAIN, "set_device_zone", fan_entity, address=2, zone=1)
+    assert hass.states.get(fan2_zone_select).state == "Zone 1 - Living room"
+    assert controller.devices[2][3] == 1

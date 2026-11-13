@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
+# Copyright (c) 2026 Markus Hennig
 """Zones in use every 30 s (option), maintenance/firmware/radio devices every 10 min, vendor catalog
 once a day."""
 from dataclasses import dataclass, field
@@ -202,13 +203,21 @@ class E16InfoCoordinator(DataUpdateCoordinator):
             raise HomeAssistantError(f"e16 setting failed: {error}") from error
         await self.async_request_refresh()
 
+    async def async_set_device_zone(self, address, zone_id):
+        # The layout listener moves the device below its new zone, or reloads for a new zone
+        await self._async_set_device_field(self.client.set_device_zone, address, zone_id)
+
     async def async_set_polarity(self, address, polarity):
+        # Some controllers switch the other fan of the pair along: all rows are taken over
+        await self._async_set_device_field(self.client.set_polarity, address, polarity)
+
+    async def _async_set_device_field(self, method, *args):
+        """Write a field of a radio device and take over all device rows read back."""
+        LOGGER.debug("e16 device setting %s%s", method.__name__, args)
         try:
-            devices = await self.hass.async_add_executor_job(
-                self.client.set_polarity, address, polarity)
+            devices = await self.hass.async_add_executor_job(method, *args)
         except (E16AuthError, OSError, ValueError) as error:
             raise HomeAssistantError(f"e16 setting failed: {error}") from error
-        # Some controllers switch the other fan of the pair along: take over all rows read back
         self.async_set_updated_data({**self.data, "devices": devices})
 
 

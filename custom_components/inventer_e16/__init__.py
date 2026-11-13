@@ -6,10 +6,10 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_track_time_interval
 
-from . import coordinator
+from . import client, coordinator
 from .client import zones_in_use
 from .const import CONF_DEVICE_ID, CONF_FIRMWARE_CATALOG, DOMAIN
-from .entity import zone_device_key
+from .entity import INDOOR_SENSOR, zone_device_key
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.FAN, Platform.BUTTON,
              Platform.NUMBER, Platform.SELECT, Platform.UPDATE]
@@ -26,21 +26,28 @@ async def async_migrate_entry(hass, entry):
     return True
 
 
-def device_zones(devices):
-    """Radio devices and their zones. A change needs other devices or entities: a new or removed
-    device, a zone coming into use or going out of use, a device moved to another zone."""
-    return {(device["address"], device["zone"]) for device in devices if device["type"] != 1}
+def layout(devices, zone_ids):
+    """What needs other devices or entities, and so a reload: a new or removed radio device, a zone
+    coming into use or going out of use, an indoor sensor moved to another zone (the zone's indoor
+    values). Fans and other devices moving between zones in use are moved in the registry."""
+    return zone_ids, frozenset(
+        (device["address"], device["zone"] if device["type"] == INDOOR_SENSOR else None)
+        for device in devices if device["type"] != 1)
 
 
 async def async_setup_entry(hass, entry):
     data = coordinator.create(hass, entry)
-    # The radio devices tell which zones are in use, so read them before the zones
+    # Zones with a radio device or a name are in use: read the devices, then all zones once
     await data.info.async_config_entry_first_refresh()
-    data.zone.zone_ids = zones_in_use(data.info.data["devices"])
+    data.zone.zone_ids = tuple(range(1, client.MAX_ZONES + 1))
     await data.zone.async_config_entry_first_refresh()
-    # Create the devices first: entities, fans and sensors reference them via via_device_id
-    main, multi_zone = entry.data[CONF_DEVICE_ID], data.zone.multi_zone
+    data.zone.zone_ids = zones_in_use(data.info.data["devices"], data.zone.data)
+    data.zone.async_set_updated_data({zone_id: data.zone.data[zone_id]
+                                      for zone_id in data.zone.zone_ids})
+    main = entry.data[CONF_DEVICE_ID]
     registry = dr.async_get(hass)
+    # Create the devices first: entities, fans and sensors reference them via via_device_id
+    multi_zone = data.zone.multi_zone
     # The entry is named after zone 1. With several zones, zone 1 is a device of its own, so the
     # controller goes by its model name.
     data.main_device_id = registry.async_get_or_create(
@@ -66,15 +73,28 @@ async def async_setup_entry(hass, entry):
                     device.id, area_id=registry.async_get(data.main_device_id).area_id)
             data.zone_device_ids[zone_id] = device.id
     entry.runtime_data = data
-    layout = device_zones(data.info.data["devices"])
+    at_setup = layout(data.info.data["devices"], data.zone.zone_ids)
 
     @callback
-    def reload_on_new_layout():
-        if data.info.data and device_zones(data.info.data["devices"]) != layout:
+    def follow_layout():
+        if not data.info.data or not data.zone.data:
+            return
+        devices = data.info.data["devices"]
+        if layout(devices, zones_in_use(devices, data.zone.data)) != at_setup:
             coordinator.LOGGER.info("Radio devices or zones changed, reloading %s", entry.title)
             hass.config_entries.async_schedule_reload(entry.entry_id)
+            return
+        # A device moved between zones in use (action, zone select or app): below its new zone
+        by_key = {key: device
+                  for device in dr.async_entries_for_config_entry(registry, entry.entry_id)
+                  for _, key in device.identifiers}
+        for device in devices:
+            registered = by_key.get(f"{main}_{device['address']}")
+            via = data.zone_device_ids.get(device["zone"], data.main_device_id)
+            if device["type"] != 1 and registered and registered.via_device_id != via:
+                registry.async_update_device(registered.id, via_device_id=via)
 
-    entry.async_on_unload(data.info.async_add_listener(reload_on_new_layout))
+    entry.async_on_unload(data.info.async_add_listener(follow_layout))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     @callback

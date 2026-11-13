@@ -77,6 +77,7 @@ READ_ONLY_FIELDS = {FILTER_LEFT, SERVICE_LEFT}
 PROGRAM_TABLES, PROGRAM_ENTRIES, WHOLE_STORE = 15, 32, 0xFFFF
 # Device rows: fan unit types, polarity field (DeviceRowField) and its offset in the row
 FAN_TYPES, POLARITY_FIELD, POLARITY_OFFSET = {2, 3}, 32, 41
+DEVICE_ZONE_FIELD = 1  # DeviceRowField: zone of the device (offset 3), from #37
 SOCKET_TIMEOUT = 10.0  # what the client passes to socket.create_connection
 CHUNK = 3  # bytes per recv(), so the client has to reassemble packets
 MISSING = b"\xff\xff\xff\xff"  # device rows: no reading
@@ -446,6 +447,13 @@ class FakeController:
     def _read_field(self, ptype, field_id):
         if ptype == GLOBAL_FIELD:
             return b"" if field_id in self.missing_fields else self.fields.get(field_id, b"")
+        if ptype == DEVICE_FIELD:
+            address, field = divmod(field_id, 65536)
+            if field == 1:
+                for row in self.devices:
+                    if row[0] == address:
+                        return bytes([row[3]])
+            return b""
         zone, field = divmod(field_id, 65536)
         zone = self._used_zone(zone)
         if zone is None:
@@ -485,8 +493,14 @@ class FakeController:
 
     def _write_device_field(self, address, field, value):
         # Other device fields change or remove the device; the client must never send them
-        assert field == POLARITY_FIELD, f"client wrote device field {field}"
+        assert field in (POLARITY_FIELD, DEVICE_ZONE_FIELD), f"client wrote device field {field}"
         index = next((i for i, row in enumerate(self.devices) if row[0] == address), None)
+        if field == DEVICE_ZONE_FIELD:
+            if index is None or len(value) != 1:
+                return False
+            row = self.devices[index]
+            self.devices[index] = row[:3] + value + row[4:]
+            return True
         if index is None or self.devices[index][1] not in FAN_TYPES or value not in (b"\0", b"\1"):
             return False
         zone = self.devices[index][3]

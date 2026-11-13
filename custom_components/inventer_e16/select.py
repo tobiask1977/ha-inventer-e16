@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
-"""Ventilation profile of the zone, filter and service interval, polarity of the fan units."""
+# Copyright (c) 2026 Markus Hennig
+"""Ventilation profile of the zone, filter and service interval, polarity and zone of the
+fan units."""
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -28,12 +30,20 @@ def interval_option(months):
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = entry.runtime_data
-    async_add_entities([*(E16Profile(data.zone, entry, "profile", zone_id=zone_id)
-                          for zone_id in data.zone.zone_ids),
-                        *(E16Interval(data.info, entry, *item) for item in INTERVALS),
-                        *(E16Polarity(data.info, entry, "polarity", device)
-                          for device in data.info.data["devices"]
-                          if device["type"] in client.FAN_DEVICE_TYPES)])
+    entities = [
+        *(E16Profile(data.zone, entry, "profile", zone_id=zone_id)
+          for zone_id in data.zone.zone_ids),
+        *(E16Interval(data.info, entry, *item) for item in INTERVALS),
+        *(E16Polarity(data.info, entry, "polarity", device)
+          for device in data.info.data["devices"]
+          if device["type"] in client.FAN_DEVICE_TYPES),
+    ]
+    # Moving fans between zones only makes sense with several zones in use (a device or a name)
+    if data.zone.multi_zone:
+        entities += [E16DeviceZone(data.info, entry, "zone", device, data.zone)
+                     for device in data.info.data["devices"]
+                     if device["type"] in client.FAN_DEVICE_TYPES | {27}]
+    async_add_entities(entities)
 
 
 class E16Profile(E16Entity, RestoreEntity, SelectEntity):
@@ -100,3 +110,41 @@ class E16Polarity(E16Entity, SelectEntity):
     async def async_select_option(self, option):
         polarity = next(k for k, v in POLARITIES.items() if v == option)
         await self.coordinator.async_set_polarity(self.address, polarity)
+
+
+class E16DeviceZone(E16Entity, SelectEntity):
+    """Zone of a fan unit (#37): choosing another zone moves the fan there. Offers the zones in use,
+    which includes named zones without devices."""
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator, entry, key, device, zones):
+        super().__init__(coordinator, entry, key, device)
+        self.zones = zones
+
+    def _label(self, zone_id):
+        zone = (self.zones.data or {}).get(zone_id)
+        name = zone["name"].strip() if zone else ""
+        return f"Zone {zone_id} - {name}" if name and name.lower() != f"zone {zone_id}" else f"Zone {zone_id}"
+
+    def _zone_ids(self):
+        row = self.device_row()
+        current = {row["zone"]} if row and 1 <= row["zone"] <= client.MAX_ZONES else set()
+        return sorted(set(self.zones.zone_ids) | current)
+
+    @property
+    def options(self):
+        return [self._label(zone_id) for zone_id in self._zone_ids()]
+
+    @property
+    def current_option(self):
+        row = self.device_row()
+        return self._label(row["zone"]) if row and 1 <= row["zone"] <= client.MAX_ZONES else None
+
+    @property
+    def extra_state_attributes(self):
+        row = self.device_row()
+        return {"address": self.address, "zone_id": row["zone"] if row else None}
+
+    async def async_select_option(self, option):
+        zone_id = next(zone_id for zone_id in self._zone_ids() if self._label(zone_id) == option)
+        await self.coordinator.async_set_device_zone(self.address, zone_id)

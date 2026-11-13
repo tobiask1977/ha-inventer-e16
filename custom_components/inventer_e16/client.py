@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
+# Copyright (c) 2026 Markus Hennig
 """Local Zirconia client for the inVENTer Easy Connect e16 (TLS-PSK, TCP 47820).
 
 Pure Python, no Home Assistant imports, so it can be tested on its own.
@@ -84,8 +85,11 @@ BATTERY_DEVICE_TYPES = {4, 5, 12}
 # Fan units carry their polarity at offset 41: the direction they start in, 0 = supply, 1 = extract
 FAN_DEVICE_TYPES = {2, 3}
 POLARITY_SUPPLY, POLARITY_EXTRACT = 0, 1
-# DeviceRowField ids: address * 65536 + field. Only the polarity is ever written.
-DF_POLARITY = 32
+# DeviceRowField ids: address * 65536 + field. Only the zone and the polarity are ever written.
+DF_ZONE, DF_POLARITY = 1, 32
+# Devices that can be moved to another zone: fan units (27 = iV-Twin+) and indoor sensors. Not the
+# controller, and not the outdoor sensor, which serves all zones (zone 0).
+MOVABLE_DEVICE_TYPES = {2, 3, 4, 27}
 # DeviceViewRow.signal of a device on a cable instead of a radio level in dBm
 SIGNAL_WIRED = 126
 # A controller has a handful of radio devices; cap what a (faulty) reply can make us query
@@ -253,11 +257,17 @@ def parse_device(data):
     }
 
 
-def zones_in_use(devices):
-    """Zone 1 and every other zone with a radio device assigned. Every zone answers, used or not
-    (an unused one with an empty name and speed 0); the device rows carry the zone."""
-    return tuple(sorted({1} | {device["zone"] for device in devices
-                               if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}))
+def zones_in_use(devices, zones=None):
+    """Zone 1, every zone with a radio device assigned, and every zone with a name in `zones`
+    ({zone_id: zone status}). A named zone stays in use without devices, so that devices can be
+    moved to it, as in the app (#37). Every zone answers, used or not (an unused one with an empty
+    name; its speed can be left over from a fan moved there and back); the device rows carry the
+    zone."""
+    used = {1} | {device["zone"] for device in devices
+                  if device["type"] != 1 and 1 <= device["zone"] <= MAX_ZONES}
+    used |= {zone_id for zone_id, zone in (zones or {}).items()
+             if 1 <= zone_id <= MAX_ZONES and zone["name"].strip()}
+    return tuple(sorted(used))
 
 
 @contextmanager
@@ -445,3 +455,21 @@ class E16Client:
     def set_zone_field(self, zone_id, field, raw, zone_ids=None):
         return self._update(T_ZONE_FIELD, field_payload(zone_id * 65536 + field, raw),
                             zone_ids or (zone_id,))
+
+    def set_device_zone(self, address, zone_id):
+        """Move a fan unit or indoor sensor to another zone (#37) and return the radio devices
+        read afterwards. The device type is checked on the controller first: the controller and
+        the outdoor sensor are never moved."""
+        if not 1 <= zone_id <= MAX_ZONES:
+            raise ValueError(f"No zone {zone_id}")
+        payload = field_payload(address * 65536 + DF_ZONE, bytes([zone_id]))
+        with self._connect() as connection, _malformed_as_value_error():
+            device = next((d for d in self._devices(connection) if d["address"] == address), None)
+            if device is None or device["type"] not in MOVABLE_DEVICE_TYPES:
+                raise ValueError(f"Device {address} can't be moved to another zone")
+            connection.sendall(packet(T_DEVICE_FIELD, payload, operation=UPDATE))
+            time.sleep(1)
+            devices = self._devices(connection)
+        if next((d["zone"] for d in devices if d["address"] == address), None) != zone_id:
+            raise ValueError(f"Device {address} was not moved to zone {zone_id}")
+        return devices

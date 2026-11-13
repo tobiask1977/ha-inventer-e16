@@ -66,7 +66,7 @@ Several payloads are wrapped:
 | 54 | FirmwareUpdateStatus | 159 | – | list of 10-byte image records (below) | verified |
 | 56 | UserOverride | 0 | wrapper(Raw) + 8-byte record | time-limited command (below) | verified |
 | 136 | GlobalDataField | 0 | wrapper(RawWithId, id) | system settings (below) | verified (read, filter reset) |
-| 140 | DeviceRowField | 0 | wrapper(RawWithId, address × 65536 + field) | settings of a radio device (below) | verified (polarity write) |
+| 140 | DeviceRowField | 0 | wrapper(RawWithId, address × 65536 + field) | settings of a radio device (below) | verified (zone and polarity write) |
 | 141 | DeviceViewHeader | 0 | – | row count `u8`, version `u16` | verified |
 | 142 | DeviceViewRow | 0 | row index `u8` | one radio device (below) | verified |
 | 144 | ZoneRowField | 0 | wrapper(RawWithId, zone_id × 65536 + field) | zone settings (below) | verified (read) |
@@ -158,9 +158,11 @@ Note: Cancel also makes an automatic profile re-evaluate immediately, so the sta
 A controller has up to four zones (ids 1–4, ZoneViewRow index = id − 1). All four indexes answer
 even when only one zone is set up: on a single-zone controller, zones 2–4 come back with an empty
 name, profile 0, speed 0, only the external-sensor flag, and the outdoor values of the shared
-outdoor sensor (verified). Index 4 and higher get no reply. Which zones are in use shows in the device rows: every radio device carries its zone id
-(the outdoor sensor 0, verified). The integration treats zone 1 and every zone with a radio device
-as in use.
+outdoor sensor (verified; after a fan was moved there and back, an unused zone kept the speed and
+mode it ran with). Index 4 and higher get no reply. Which zones are in use shows in the device rows:
+every radio device carries its zone id (the outdoor sensor 0, verified). The integration treats
+zone 1, every zone with a radio device and every zone with a name as in use (a named zone is a
+target for moving devices, as in the app).
 
 Reported by a user from a controller with four zones (controller 5.30.11, fans 5.30.10; issue
 #22), tested with the client of this integration, not checked here:
@@ -207,9 +209,9 @@ temperature, 3 comfort outdoor temperature, 4 RH threshold, 5 CO₂ threshold, 6
 
 ### 140 DeviceRowField
 
-Field id = device address × 65536 + field. The integration only writes field 32, the polarity of
-a fan unit (u8, 0 supply, 1 extract, the value at offset 41 of the device row). Like the other
-writes, it gets no reply; read the device rows back.
+Field id = device address × 65536 + field. Field 32 is the polarity of a fan unit (u8, 0 supply,
+1 extract, the value at offset 41 of the device row). Like the other writes, it gets no reply;
+read the device rows back.
 
 Verified in November 2026 on two installations, with different results:
 
@@ -221,6 +223,16 @@ Verified in November 2026 on two installations, with different results:
 
 What makes the controller switch the partner along is not known (the fan on a cable is a
 guess).
+
+Field 1 is the zone of a device (`u8`, zone id 1–4), used by the action `set_device_zone` to move
+a fan unit or indoor sensor to another zone. Verified in November 2026 on a single-zone controller,
+moving a fan unit from zone 1 to zone 2 and back:
+
+- The device row shows the new zone after one second; no reply to the write.
+- The target zone gets the flags fan unit and has devices (4 → 44) and at once runs at the speed,
+  mode and playback of the zone the fan came from (here: speed 3, heat recovery, override).
+- After moving back, zone 2 drops to flag 4 again but keeps reporting that speed, mode and
+  playback, so an unused zone doesn't always report speed 0. Its name stays empty.
 
 ### 142 DeviceViewRow (V5)
 

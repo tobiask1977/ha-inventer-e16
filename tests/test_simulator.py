@@ -200,6 +200,30 @@ def test_time_program_write_that_is_not_stored(monkeypatch):
     assert len(controller.ignored_writes) == 1
 
 
+def test_set_device_zone_moves_device_and_verifies(monkeypatch):
+    controller = sim.FakeController(zones=2)
+    e16 = wired(monkeypatch, controller)
+    # Move fan 2 (address 2, initially zone 1) to zone 2, over one connection
+    devices = {d["address"]: d for d in e16.set_device_zone(2, 2)}
+    assert devices[2]["zone"] == 2 and devices[1]["zone"] == 1
+    assert controller.connections == 1
+    # An indoor sensor can be moved as well, the outdoor sensor not
+    controller.devices += [sim.device_row(5, 4, 3, "Indoor", 5030008, signal=-53, battery=64.0),
+                           sim.device_row(6, 5, 3, "Outdoor", 5030008, zone=0, signal=-60, battery=64.0)]
+    assert {d["address"]: d["zone"] for d in e16.set_device_zone(5, 2)}[5] == 2
+    with pytest.raises(ValueError, match="can't be moved"):
+        e16.set_device_zone(6, 2)
+    assert controller.devices[-1][3] == 0
+
+
+def test_set_device_zone_fails_when_not_stored(monkeypatch):
+    controller = sim.FakeController(zones=2)
+    e16 = wired(monkeypatch, controller)
+    monkeypatch.setattr(controller, "_write_field", lambda *args: False)
+    with pytest.raises(ValueError, match="not moved"):
+        e16.set_device_zone(2, 2)
+
+
 def test_polarity_switches_the_other_fan_of_the_pair(monkeypatch):
     controller = sim.FakeController(zones=3)  # zone 1: fans 1 and 2
     e16 = wired(monkeypatch, controller)
@@ -237,6 +261,9 @@ def test_zones_in_use_follow_the_radio_devices(monkeypatch):
     # The controller (type 1) and devices without a zone (outdoor sensor: 0) don't count
     devices = [{"type": 1, "zone": 3}, {"type": 5, "zone": 0}, {"type": 2, "zone": 9}]
     assert client.zones_in_use(devices) == (1,)
+    # A zone with a name stays in use without devices, so that devices can be moved to it (#37)
+    zones = {1: {"name": "Zone 1"}, 2: {"name": "Bedroom"}, 3: {"name": " "}, 4: {"name": ""}}
+    assert client.zones_in_use([], zones=zones) == (1, 2)
 
 
 def test_unused_zones_answer_but_are_empty(monkeypatch):

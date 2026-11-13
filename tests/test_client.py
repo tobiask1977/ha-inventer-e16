@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Tobias Krautkremer
+# Copyright (c) 2026 Markus Hennig
 """Protocol tests for client.py - no Home Assistant needed.
 
 The byte strings are real e16 replies with names and timestamps replaced; they contain no keys.
@@ -262,6 +263,11 @@ def test_time_program_delete(monkeypatch):
     assert connection.sent[0][14:22] == bytes(8)
 
 
+def test_device_field_payload():
+    # Address 2, field 1 (DF_ZONE) -> 2 * 65536 + 1 = 131073
+    assert client.field_payload(2 * 65536 + client.DF_ZONE, b"\x03").hex() == "ba0a07050100020003"
+
+
 def _device_replies(*rows):
     header = client.packet(client.T_DEVICE_HEADER, struct.pack("<BH", len(rows), 5),
                            operation=client.RESPONSE)
@@ -297,4 +303,46 @@ def test_invalid_polarity_write_is_never_sent(monkeypatch, address, polarity):
     connection = RecordingConnection(b"")
     with pytest.raises(ValueError):
         _client_with(monkeypatch, connection).set_polarity(address, polarity)
+    assert connection.sent == []
+
+
+def _zone_row(address, zone, device_type=2):
+    return bytes([address, device_type]) + FAN_ROW[2:3] + bytes([zone]) + FAN_ROW[4:]
+
+
+def test_device_zone_write_checks_the_type_and_is_read_back(monkeypatch):
+    before = _device_replies(_zone_row(1, 1), _zone_row(2, 1))
+    connection = RecordingConnection(before + _device_replies(_zone_row(1, 1), _zone_row(2, 3)))
+    devices = _client_with(monkeypatch, connection).set_device_zone(2, 3)
+    assert [d["zone"] for d in devices] == [1, 3]
+    # Device list, the write, device list again
+    types = [packet[3] for packet in connection.sent]
+    assert types == [client.T_DEVICE_HEADER, client.T_DEVICE_ROW, client.T_DEVICE_ROW,
+                     client.T_DEVICE_FIELD, client.T_DEVICE_HEADER, client.T_DEVICE_ROW, client.T_DEVICE_ROW]
+    write = connection.sent[3]
+    assert write[4] == client.UPDATE
+    assert write[10:] == client.field_payload(2 * 65536 + client.DF_ZONE, bytes([3]))
+
+
+def test_device_zone_write_not_stored(monkeypatch):
+    rows = _device_replies(_zone_row(2, 1))
+    connection = RecordingConnection(rows + rows)
+    with pytest.raises(ValueError, match="not moved"):
+        _client_with(monkeypatch, connection).set_device_zone(2, 3)
+
+
+@pytest.mark.parametrize("address, device_type", [(0, 1), (4, 5), (9, 2)])
+def test_controller_outdoor_sensor_and_unknown_devices_are_never_moved(monkeypatch, address, device_type):
+    # The controller, the outdoor sensor (it serves all zones) and an address without a device
+    connection = RecordingConnection(_device_replies(_zone_row(address if address != 9 else 1, 1, device_type)))
+    with pytest.raises(ValueError, match="can't be moved"):
+        _client_with(monkeypatch, connection).set_device_zone(address, 2)
+    assert client.T_DEVICE_FIELD not in [packet[3] for packet in connection.sent]
+
+
+@pytest.mark.parametrize("zone", [0, client.MAX_ZONES + 1])
+def test_device_zone_outside_the_zones_is_never_sent(monkeypatch, zone):
+    connection = RecordingConnection(b"")
+    with pytest.raises(ValueError):
+        _client_with(monkeypatch, connection).set_device_zone(2, zone)
     assert connection.sent == []

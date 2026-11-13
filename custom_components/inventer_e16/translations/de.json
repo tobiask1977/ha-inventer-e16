@@ -132,6 +132,30 @@
           "description": "Platz 0–31. Welche Plätze belegt sind, zeigt die Antwort von „Zeitprogramm lesen“."
         }
       }
+    },
+    "get_devices": {
+      "name": "Geräte abrufen",
+      "description": "Liest alle erkannten Funkgeräte (Lüfter, Sensoren, Regler) und Zonen vom Regler aus.",
+      "fields": {
+        "refresh": {
+          "name": "Aktualisieren",
+          "description": "Liest die Gerätedaten sofort frisch vom Regler statt aus dem Cache."
+        }
+      }
+    },
+    "set_device_zone": {
+      "name": "Gerät einer Zone zuordnen",
+      "description": "Verschiebt einen Lüfter oder Innensensor in eine andere Zone. Regler und Außensensor lassen sich nicht verschieben.",
+      "fields": {
+        "address": {
+          "name": "Geräteadresse",
+          "description": "Busadresse des Geräts (1–31), siehe „Geräte abrufen“."
+        },
+        "zone": {
+          "name": "Zonen-ID",
+          "description": "Nummer der Zone (1–4), der das Gerät zugeordnet werden soll."
+        }
+      }
     }
   },
   "selector": {
@@ -436,6 +460,9 @@
           "9": "9 Monate",
           "12": "12 Monate"
         }
+      },
+      "zone": {
+        "name": "Zone"
       },
       "polarity": {
         "name": "Polarität",
