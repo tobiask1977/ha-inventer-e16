@@ -73,7 +73,8 @@ Several payloads are wrapped:
 | 146 | ZoneViewRow | 0 | zone index `u8` (0 = first zone) | zone status (below) | verified |
 
 Other types exist (firmware transfer 52–55, reboot 10, Wi-Fi config 12, …) and are deliberately
-not used.
+not used. Read on a real controller but not used by the integration: 83/89 (temperature and
+humidity) and 137 (GlobalData), see below.
 
 ### 146 ZoneViewRow (V5)
 
@@ -200,6 +201,37 @@ integration therefore sends the cancel for all zones.
 
 Verified: reading all, and resetting the filter timer (5.98 → 6.0 months, nothing else changed).
 The remaining time is updated rarely (unchanged over 20 minutes).
+
+### 137 GlobalData
+
+The global settings as whole tables. Request payload: one byte, the table (0 general, 1 fans,
+2 sensors). The reply is 65 bytes: the table number, then 64 bytes of table data (unused bytes 0).
+Its operation byte is 0, not 64. Verified by reading all three tables twice in November 2026; the
+general and fan values match the single fields of 136.
+
+| Table | Offset | Type | Read | Content |
+|---:|---:|---|---:|---|
+| 0 | 0 | u8 | 6 | Filter interval in months (136 field 0) |
+| 0 | 1 | u8 | 6 | Service interval in months (136 field 1) |
+| 0 | 2 | u16 | 60 | Unknown; heartbeat interval of mains-powered devices in seconds according to the app analysis |
+| 0 | 4 | u16 | 3600 | Unknown; heartbeat interval of battery devices in seconds according to the app analysis |
+| 1 | 0–3 | u8 × 4 | 25 / 35 / 50 / 100 | Fan power of speed level 1–4 (136 fields 32–35) |
+| 1 | 4 | u16 | 70 | Reversal interval (136 field 36) |
+| 1 | 6 / 7 | u8 | 1 / 1 | Default profile mode / speed (136 fields 37 / 38) |
+| 2 | 0–7 | u16 × 4 | 30 / 5 / 5 / 5 | Unknown; read intervals in seconds of battery T/RH sensors, mains-powered T/RH sensors, CO₂ and VOC sensors according to the app analysis |
+| 2 | 8–23 | f32 × 4 | 1.0 / 5.0 / 100.0 / 0.2 | Unknown; limits for temperature, RH, CO₂ and VOC according to the app analysis |
+
+Offsets count from the first byte after the table number.
+
+### 83 / 89 Temperature and humidity
+
+Request without payload. The reply is a wrapper of type 1 with length 12: the value as f32, then
+8 bytes not decoded (the last one differed between reads). 83 returns a temperature, 89 a relative
+humidity. Verified by reading twice in November 2026 on a controller with one indoor and one
+outdoor T/RH sensor: 83 gave 26.2 and 26.3 °C, 89 gave 37.0 and 36.1 %, while the indoor sensor
+reported 21.8 °C / 43.7 % and the outdoor sensor 5.2 °C / 88.5 %. Which sensor measures these
+values is not known. Types 84 and 90 (external temperature and humidity in the app's list of
+packet types) got no reply.
 
 ### 144 ZoneRowField
 
