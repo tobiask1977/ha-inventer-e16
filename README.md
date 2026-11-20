@@ -201,6 +201,10 @@ download, see [CONTRIBUTING.md](CONTRIBUTING.md).
 [docs/protocol.md](docs/protocol.md) describes the packet formats and what has been verified on a
 real controller.
 
+[docs/firmware-research.md](docs/firmware-research.md) records the firmware container analysis,
+external sensor input investigation, source references and remaining questions. It distinguishes
+static app/file analysis from owner-authorized, read-only controller checks.
+
 ## Development
 
 ```bash

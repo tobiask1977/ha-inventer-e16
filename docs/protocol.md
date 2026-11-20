@@ -12,6 +12,12 @@ official Android app for the sole purpose of interoperability with Home Assistan
 images or other assets of the manufacturer are part of this repository; this document describes
 data formats in our own words.
 
+The additions from 15 November 2026 began with static analysis of Android app 7.0.1 and
+inspection of downloaded firmware containers. They are labelled **app-derived** or **file-checked**,
+not controller-verified. Subsequent owner-authorized, read-only controller checks are labelled
+separately below; no device writes or firmware uploads were performed. The
+[research record](firmware-research.md#source-index) identifies the artifacts and source locations.
+
 ## Transport
 
 | | |
@@ -42,9 +48,16 @@ poll works fine. Keep only one connection open at a time.
 if crc & 0x80: crc ^= 0x07`. This differs from the textbook CRC-8 (which tests the bit *before*
 shifting): `"123456789"` gives `0xAF`, not `0xF4`.
 
-Requests use operation `DataRequest`; replies come back with bit 64 set. Writes use `Update`;
-the app does not wait for a reply and simply reads the state again (verified: the next request
-on the same connection returns the new state).
+The integration's reads use operation `DataRequest`; replies come back with bit 64 set. Its
+settings writes use `Update` without waiting for a reply, then read the state again (verified:
+the next request on the same connection returns the new state). Other app operations, including
+firmware transfer and PropertySync, have their own response handling described below.
+
+**App-derived:** received packets can end with three-byte backtracking records: source address
+`u8`, communication type `u8` (0 RS485, 1 RF868), RSSI `i8`. Their count is at header offset 2;
+the app parser subtracts their total size from the payload length. These are return-path
+metadata, not a demonstrated way for a TCP client to impersonate a paired sensor. The header's
+destination is not a sensor source address. The integration does not send backtracking records.
 
 ## DataObjectArray wrapper
 
@@ -56,6 +69,22 @@ Several payloads are wrapped:
 | 2 | 1 | Type: 0 Raw, 7 RawWithId (others exist) |
 | 3 | 1 | Length of what follows (Raw: record length; RawWithId: 4 + value length) |
 | 4 | … | Raw: the record. RawWithId: field id `UInt32LE`, then the value |
+
+### Object values in sensor replies
+
+**App-derived, not controller-verified:** the e16 temperature getters expect wrapper type
+1 (`Object`), followed by a 12-byte DataObject. For one float, the wrapper length is 12.
+
+| DataObject offset | Size | Content |
+|---:|---:|---|
+| 0 | 4 | IEEE754 float32, little endian |
+| 4 | 4 | Rest of the generic eight-byte value area; meaning for a float not established |
+| 8 | 2 | Magic `0xDADA`, little endian |
+| 10 | 1 | Value type: 1 Float |
+| 11 | 1 | XOR of DataObject bytes 0–10 |
+
+The inner XOR is separate from the outer packet CRC-8. This describes a parsed **read reply**,
+not an accepted sensor-report or temperature-write format.
 
 ## Packet types used by the integration
 
@@ -201,6 +230,12 @@ integration therefore sends the cancel for all zones.
 Verified: reading all, and resetting the filter timer (5.98 → 6.0 months, nothing else changed).
 The remaining time is updated rarely (unchanged over 20 minutes).
 
+**App-derived names, not controller-verified:** the app's system-settings enum also lists
+sensor read intervals at 64 (battery sensor), 65 (mains sensor), 66 (CO₂), 67 (VOC), and send
+thresholds at 68 (temperature), 69 (humidity), 70 (CO₂), 71 (VOC). Units, limits and device
+support have not been established here. These describe sampling/reporting configuration,
+not replacement measurement values.
+
 ### 144 ZoneRowField
 
 Field id = zone id × 65536 + field. Fields: 0 name (16 bytes), 1 profile (u8), 2 comfort room
@@ -266,6 +301,61 @@ a fixed offset. The integration does not parse them.
 Records of 10 bytes: index `u8`, valid `u8` (1 valid), version `u32`, CRC `u32`. Index 255 is the
 running image.
 
+This is the `DataRequest` (2) use of type 54. The app uses the same type with operation `Update`
+(1) to obtain a different transfer-status record; see [Firmware transfer](#firmware-transfer).
+
+**Read-only controller check, 15 November 2026:** type 54 with `DataRequest` also answered at
+master address 0. It reported controller image 5.30.11 at indices 0 and 255 (CRC `2fa606cb`)
+and fan image 5.30.10 at index 2 (CRC `46db29db`). Address 159 reported running ESP32 image
+1.3.11 at index 255 (CRC `6c3f48c8`). These CRCs match the downloaded encrypted payloads.
+The command returns image metadata, not firmware bytes; the observed staging slots do not
+establish boot partition geometry.
+
+### Temperature reads and external measurement inputs
+
+**App-derived:** the actual e16 product path is `IvConnectDeviceManager` → `IvConnectDevice`
+→ `ZirconiaDevice`. It selects TCP or BLE and uses `ZoneViewRowV5`. Its internal/external
+temperature getters send packet types 83/84 respectively with `DataRequest` and parse the
+Object/Float reply described above. Neither a matching measurement setter nor a measurement
+field in the known GlobalDataField, ZoneRowField or DeviceRowField definitions was found.
+The separate `DummyIvConnectDevice` returns sample values and is not a controller input API.
+
+Zone field 3 (`ExternalComfortTemperature`) is a comfort parameter, distinct from the measured
+outdoor temperature in the zone view. Device-view byte offsets are not writable field IDs.
+Replacing a value in Home Assistant's state does not change the controller's measurement.
+
+**Other product family:** app 7.0.1 implements virtual input configuration in `EconiqDevice`.
+The BMS screen explicitly requires that product class. Its MQTT configuration topics are
+`bms/vi<n>/conf` and `bms/vi<n>/conf/wr`; the JSON contains `name`, `zone`, `typ` (0 None,
+1 Temperature, 2 RH, 3 CO₂, 4 VOC). A measurement-writing topic or method was not found in
+these app paths. This is not evidence of e16 virtual-sensor support.
+
+The shared PropertyID enum names virtual input configuration IDs 109–118 and value IDs 129–138.
+These belong to the PropertySync namespace, not the zone/device field namespace. Neither an
+e16 handler nor the value encoding, indoor/outdoor mapping or validity period is established.
+Absence of an app setter does not rule out an unused firmware handler.
+
+**Further app-derived names:** PropertyIDs 507–538 are `ZirconiaSensorTemp1` through `Temp32`
+(ID = 506 + sensor number). The shared PropertyType enum includes `Temperature = 10`, but no
+concrete app call establishes that these IDs use that type, their numeric encoding, or whether
+the e16 accepts them as inputs. These are leads for firmware investigation, not writable
+temperature registers.
+
+### 49 PropertySync
+
+**App-derived, not controller-verified:** the shared serializer encodes:
+
+| Offset | Size | Content |
+|---:|---:|---|
+| 0 | 2 | Counter `u16LE` |
+| 2 | 1 | Number of properties |
+| 3 | … | Repeated entries: property ID `u16LE`, type `u8`, data length `u8`, data |
+
+The base class's `setPropertyPersonaliseMachine` sends this container to the master with
+`Update | AcknowledgementRequest` and checks for an acknowledgement of the specific
+`PersonaliseMachine` property. It is not a generic virtual-sensor setter. A shared container
+and a global ID table do not establish which properties the e16 accepts or uses for control.
+
 ### 48 Time program
 
 Each ventilation profile 1–15 (table above) has its own time program: table = profile value − 1,
@@ -315,7 +405,127 @@ The reply lists `hardwareType` (6 Wi-Fi module, 1 controller, 2 fans, 3 sensors)
 checksums. It needs no authentication. The checksum of the running ESP32 image matched the
 catalog entry. Installing firmware (packets 52–55, encrypted images) is left to the official app.
 
+### Firmware download
+
+**App-derived request; download endpoint checked on 15 November 2026:** the app obtains a
+temporary URL with:
+
+```text
+POST https://europe-west3-volution-group-apps.cloudfunctions.net/downloadFirmwareFile
+{"data": {"hardwareType": 6, "version": 1003011}}
+```
+
+The URL is at `result.success.signedUrl`. The request takes a hardware type and integer version;
+the four inspected downloads required no device identity, personal PSK or authentication.
+Do not store temporary signed URLs in the repository. Firmware files and app artifacts remain
+outside version control; [the research record](firmware-research.md#inspected-firmware-files)
+contains sizes, versions and hashes for identification.
+
+### Firmware container
+
+**App-derived layout, file-checked against the four downloads:** the file has a 256-byte
+prefix followed by encrypted image bytes. The app serializes a **64-byte transfer header**,
+consisting of 48 persistent bytes and 16 variable bytes; it starts reading image bytes at
+**file offset 256**. These are different lengths.
+
+| Offset | Size | Content |
+|---:|---:|---|
+| 0 | 4 | Container magic `u32LE` |
+| 4 | 4 | Integer firmware version `u32LE` |
+| 8 | 4 | Decrypted image size `u32LE` |
+| 12 | 4 | Decrypted image CRC `u32LE` |
+| 16 | 4 | Hardware type `u32LE` |
+| 20 | 16 | Encryption IV |
+| 36 | 4 | Encrypted image size `u32LE` |
+| 40 | 4 | Encrypted image CRC `u32LE` |
+| 44 | 4 | Header CRC over bytes 0–43, `u32LE` |
+| 48 | 1 | Encryption mode in the transfer header |
+| 49 | 1 | Memory bank in the transfer header |
+| 50 | 4 | Transfer/resume offset `u32LE` |
+| 54 | 10 | Rest of the variable transfer-header area |
+| 64 | 192 | Rest of the file prefix |
+| 256 | n | Encrypted image bytes |
+
+In all four inspected files, bytes 48–255 are zero. The app sets encryption mode 1 (`AesCbc`),
+bank and transfer offset before sending the header. Zero in the file's mode byte therefore
+does not imply plaintext. Mode 0 is named `NotEncrypted` in the app; device acceptance of that
+mode has not been tested. AES key size and padding contents are not established.
+
+The app's `stm32Crc32` starts at `0xFFFFFFFF`, uses polynomial `0x04C11DB7`, processes each
+little-endian 32-bit input word most-significant-bit first, and applies no final XOR. It is
+not `zlib.crc32` over the file. The four inspected header/data ranges are word-aligned.
+For each file, encrypted size, encrypted-payload CRC and header CRC matched the file and
+catalog fields. The decrypted CRC cannot be checked without plaintext.
+
+Container magic values were `0x0C0DE003` (ESP32), `0xC0DE0003` (controller), `0xC0DE0002`
+(fans), `0xC0DE0001` (sensors). They are not established CPU identifiers.
+
+### Firmware transfer
+
+**App-derived only; no upload or installation tested during this investigation.**
+
+| Type | Operation | Purpose in the app |
+|---:|---|---|
+| 52 | Update (1) | Send the 64-byte transfer header |
+| 53 | Update (1) | Send an image chunk |
+| 54 | DataRequest (2) | Read the image list, as used by the integration |
+| 54 | Update (1) | Obtain transfer status, despite the operation name |
+| 55 | Update (1) | Apply the prepared update |
+
+The app sends controller/fan/sensor images to master address 0, ESP32 images to address 159.
+Preferred staging banks are 1 (controller), 2 (fans), 3 (sensors), subject to available banks;
+ESP32/gateway bank selection uses 0. These bank numbers do not establish flash addresses or
+the number of bootable partitions.
+
+After sending a header with initial transfer offset 0, the uploader waits for `Recording`,
+then sends slices from file offset 256 in chunks of at most 88 image bytes. The type-53 payload is:
+
+| Payload offset | Size | Content |
+|---:|---:|---|
+| 0 | 3 | Image byte offset `u24LE` |
+| 3 | 1 | Number of data bytes |
+| 4 | 1–88 | Image data |
+
+The app calls the offset `blockIndex`, but supplies chunk number × 88. Its serializer writes
+a `u32LE`, then overwrites its highest byte with the data length. For non-ESP32 targets it
+pads a short final chunk with zeros to 88 bytes; for ESP32 it retains the shorter length.
+Upload windows contain up to 32 chunks for non-BLE connections and one for BLE. On a transfer
+fault, the uploader can resend the header with `nextExpectedIndex` as the resume offset.
+
+The type-54 `Update` reply has at least ten bytes:
+
+| Offset | Size | Content |
+|---:|---:|---|
+| 0 | 4 | Last received index `u32LE` |
+| 4 | 4 | Next expected index `u32LE` |
+| 8 | 1 | Last error |
+| 9 | 1 | Current state |
+
+The app's state enum is 0 Idle, 1 Recording, 2 Validating, 3 SendingApply, 4 ApplyValidating,
+5 ReadyToApply, 6 UpdatePreparing, 7 SendingBinary, 8 Applying, 9 UpdateCompleted, 10 Fault.
+It waits for `ReadyToApply` before separately applying the update. Error names cover bad CRC,
+internal/external flash access, invalid bank/offset and slave validation; they do not establish
+flash geometry or recovery guarantees.
+
+The inspected path reads the downloaded bytes and sends their encrypted slices without
+decrypting them in the app. No firmware key was found in that path. This suggests device-side
+decryption; it does not establish key storage, key scope, Secure Boot, flash encryption or
+whether a modified image would be accepted. The local TLS-PSK is not a demonstrated firmware
+or radio key. Exact ESP32 variant and the controller/fan/sensor CPU models remain unknown;
+the app's separate STM32WL hardware types 16–18 do not identify the catalog's types 1–3.
+
 ## Bluetooth LE onboarding
+
+### Device information reads
+
+**Read-only controller check, 15 November 2026:** standard Device Information Service reads
+were possible without requesting pairing or writing a PIN. Characteristic `0x2A27` (hardware
+revision) returned `02.00`; `0x2A28` (software revision) returned `1.03.11`; `0x2A26` (firmware
+revision) returned `5.30.11`. The full UUIDs have the standard Bluetooth base suffix
+`-0000-1000-8000-00805f9b34fb`. No GATT write or notification subscription was used.
+The hardware revision string does not identify ESP32 silicon revision, module or flash size.
+
+### Pairing characteristics
 
 | Service / characteristic | UUID |
 |---|---|

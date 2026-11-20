@@ -17,3 +17,6 @@ Thumbs.db
 *.secret.json
 e16*.json
 credentials*.json
+
+# Local manufacturer firmware and private research artifacts
+.local-firmware/
